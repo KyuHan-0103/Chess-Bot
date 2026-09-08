@@ -1,4 +1,4 @@
-from constants import *
+from core.constants import *
 
 #Attack detection along one ray: the first occupied square only, or 0 if the
 #ray runs off the board. Deliberately separate from line_moves, which has the

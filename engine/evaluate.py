@@ -1,5 +1,5 @@
-from constants import *
-from psqt import *
+from core.constants import *
+from engine.psqt import *
 
 def self_evaluate(chess):
     """

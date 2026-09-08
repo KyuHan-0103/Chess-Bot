@@ -1,4 +1,4 @@
-from constants import *
+from core.constants import *
 import random
 
 random.seed(0xC0FFEE) #Fixed seed so games are reproducible

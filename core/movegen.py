@@ -1,6 +1,6 @@
 from typing import NamedTuple
-from constants import *
-from attacks import *
+from core.constants import *
+from core.attacks import *
 
 #Creating a move class to differentiate promotion moves by the piece they promote to
 class Move(NamedTuple):

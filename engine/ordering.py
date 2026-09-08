@@ -1,6 +1,6 @@
 from operator import itemgetter
-from constants import PIECE_VALUES
-from movegen import same_move
+from core.constants import PIECE_VALUES
+from core.movegen import same_move
 
 #One thing to note, this function orders moves by capture score, but it doesn't see en_passant captures
 def order_moves(chess, moves, tt_move=None):
@@ -27,5 +27,5 @@ def order_moves(chess, moves, tt_move=None):
     scored.sort(key=itemgetter(0), reverse=True)
     return [(origin, move) for _, origin, move in scored]
 
-killers = [[None, None] for _ in range(64)]
-history = [[0] * 64 for _ in range(64)]
+#killers = [[None, None] for _ in range(64)]
+#history = [[0] * 64 for _ in range(64)]

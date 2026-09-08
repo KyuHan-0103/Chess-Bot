@@ -11,15 +11,15 @@ import math
 import sys
 import time
 
-import search
-from board import Chess
-from constants import MATE, PIECE_VALUES
-from movegen import (Move, pseudo_legal_moves, legal_move_list,
+from engine import search
+from core.board import Chess
+from core.constants import MATE, PIECE_VALUES
+from core.movegen import (Move, pseudo_legal_moves, legal_move_list,
                      get_castling_rights)
-from perft import from_fen
-from rules import make_move, undo_move, game_result, has_legal_move
-from zobrist import full_hash
-from evaluate import self_evaluate
+from testing.perft import from_fen
+from core.rules import make_move, undo_move, game_result, has_legal_move
+from core.zobrist import full_hash
+from engine.evaluate import self_evaluate
 
 PASS, FAIL = [], []
 

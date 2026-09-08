@@ -1,6 +1,6 @@
 from collections import deque
-from zobrist import *
-from constants import *
+from core.zobrist import *
+from core.constants import *
 
 class Chess:
     def __init__(self):

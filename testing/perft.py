@@ -27,11 +27,11 @@ import argparse
 import sys
 import time
 
-from board import Chess
-from constants import PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING
-from movegen import Move, legal_move_list, pseudo_legal_moves
-from rules import make_move, undo_move
-from zobrist import full_hash
+from core.board import Chess
+from core.constants import PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING
+from core.movegen import Move, legal_move_list, pseudo_legal_moves
+from core.rules import make_move, undo_move
+from core.zobrist import full_hash
 
 # ---------------------------------------------------------------------------
 # FEN parsing

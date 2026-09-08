@@ -1,7 +1,7 @@
-from constants import *
-from movegen import *
-from attacks import *
-from zobrist import *
+from core.constants import *
+from core.movegen import *
+from core.attacks import *
+from core.zobrist import *
 
 """
 ===========================================================================

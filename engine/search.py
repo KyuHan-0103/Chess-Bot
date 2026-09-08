@@ -1,10 +1,10 @@
 import math
 import time
-from rules import *
-from movegen import *
-from evaluate import self_evaluate
-from ordering import order_moves
-from constants import MATE
+from core.rules import *
+from core.movegen import *
+from engine.evaluate import self_evaluate
+from engine.ordering import order_moves
+from core.constants import MATE
 
 def negative_max(chess, depth, alpha, beta, ply):
     """

@@ -1,9 +1,12 @@
 import tkinter as tk
+from pathlib import Path
 from PIL import Image, ImageTk
-from constants import PIECE_NAMES, MATE
-from movegen import *
-from rules import *
-from search import *
+from core.constants import PIECE_NAMES, MATE
+from core.movegen import *
+from core.rules import *
+from engine.search import *
+
+PIECE_ICON_DIR = Path(__file__).resolve().parent.parent / "assets" / "piece_icons"
 
 PIECE_SCALE = 0.9
 LIGHT_SQUARE = "#ebd6b0"
@@ -304,7 +307,7 @@ def place_piece(ROW, COL, piece, cell):
     piece_name = PIECE_NAMES[abs(piece)]
     color = "white" if piece > 0 else "black"
     
-    image_path = "piece_icons/" + color + "_" + piece_name + ".png"
+    image_path = PIECE_ICON_DIR / (color + "_" + piece_name + ".png")
 
     #Place canvas inside the proper cell and grid it to have it fill the cell
     place_canvas = tk.Canvas(cell, bg= square_color(ROW, COL), highlightthickness=0)

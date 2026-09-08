@@ -14,7 +14,7 @@ ORIENTATION
     value folded in, the rank already mirrored, and Black's side already
     negated, so evaluate.py can add one lookup per piece.
 """
-from constants import PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING
+from core.constants import PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING
 
 MIDGAME, ENDGAME = 0, 1
 
