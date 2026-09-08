@@ -152,12 +152,13 @@ def quiescence(chess, alpha, beta):
             alpha = score
     return alpha
 
-def search(chess, max_depth, time_limit=None):
+def search(chess, max_depth, node_limit=None, time_limit=None):
     global _deadline, _nodes
     best_move, best_score = None, -math.inf
     limit = time.perf_counter() + time_limit if time_limit else None
     _nodes = 0
-
+    if node_limit is not None:
+        _node_limit = node_limit
     #Making sure the board is properly returned to its initial state after the search
     key_before = chess.zobrist
     try:
@@ -228,10 +229,12 @@ def tt_store(key, depth, score, flag, move, ply):
 
 class Timeout(Exception):
     pass
+
 _deadline = None
 _nodes = 0
+_node_limit = 2048
 def check_time():
     global _nodes
     _nodes += 1
-    if _deadline and _nodes % 2048 == 0 and time.perf_counter() > _deadline:
+    if _deadline and _nodes % _node_limit == 0 and time.perf_counter() > _deadline:
         raise Timeout

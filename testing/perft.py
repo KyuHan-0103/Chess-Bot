@@ -10,6 +10,7 @@ Usage:
     python3 perft.py                    # run the standard suite
     python3 perft.py --hash             # also verify zobrist consistency
     python3 perft.py --state            # also verify make/undo restores state
+    python3 perft.py --roundtrip        # also verify to_fen/from_fen round trip
     python3 perft.py --all              # every check
     python3 perft.py --divide 3         # per-root-move counts, start position
     python3 perft.py --divide 3 --fen "<FEN>"
@@ -27,105 +28,10 @@ import argparse
 import sys
 import time
 
-from core.board import Chess
-from core.constants import PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING
-from core.movegen import Move, legal_move_list, pseudo_legal_moves
+from core.movegen import legal_move_list, pseudo_legal_moves
 from core.rules import make_move, undo_move
 from core.zobrist import full_hash
-
-# ---------------------------------------------------------------------------
-# FEN parsing
-# ---------------------------------------------------------------------------
-
-FEN_PIECES = {"p": PAWN, "n": KNIGHT, "b": BISHOP,
-              "r": ROOK, "q": QUEEN, "k": KING}
-
-
-def from_fen(fen):
-    """Build a Chess object from a FEN string."""
-    parts = fen.split()
-    if len(parts) < 3:
-        raise ValueError(f"FEN needs at least 3 fields, got {len(parts)}: {fen!r}")
-
-    placement, side_field, castle_field = parts[0], parts[1], parts[2]
-    ep_field = parts[3] if len(parts) > 3 else "-"
-    halfmove = int(parts[4]) if len(parts) > 4 else 0
-
-    board = [[0] * 8 for _ in range(8)]
-    row = 0
-    col = 0
-    for ch in placement:
-        if ch == "/":
-            row += 1
-            col = 0
-        elif ch.isdigit():
-            col += int(ch)
-        else:
-            piece = FEN_PIECES[ch.lower()]
-            board[row][col] = piece if ch.isupper() else -piece
-            col += 1
-
-    chess = Chess()
-    chess.chess_board = board
-    chess.side_to_move = 1 if side_field == "w" else -1
-
-    chess.white_king_castle = "K" in castle_field
-    chess.white_queen_castle = "Q" in castle_field
-    chess.black_king_castle = "k" in castle_field
-    chess.black_queen_castle = "q" in castle_field
-
-    # Locate the kings rather than trusting a hardcoded square
-    chess.white_king_pos = None
-    chess.black_king_pos = None
-    for r in range(8):
-        for c in range(8):
-            if board[r][c] == KING:
-                chess.white_king_pos = (r, c)
-            elif board[r][c] == -KING:
-                chess.black_king_pos = (r, c)
-    if chess.white_king_pos is None or chess.black_king_pos is None:
-        raise ValueError("FEN is missing a king")
-
-    # This engine stores en passant as {capturing_pawn_square: destination Move}
-    chess.en_passant = {}
-    if ep_field != "-":
-        ep_col = ord(ep_field[0]) - ord("a")
-        ep_row = 8 - int(ep_field[1])
-        side = chess.side_to_move
-        pawn_row = ep_row + side          # square the capturing pawn sits on
-        if 0 <= pawn_row < 8:
-            for delta in (-1, 1):
-                c = ep_col + delta
-                if 0 <= c < 8 and board[pawn_row][c] == PAWN * side:
-                    chess.en_passant[(pawn_row, c)] = Move(ep_row, ep_col)
-
-    chess.half_move_clock = halfmove
-    chess.position_counts = {}
-    chess.game = None
-    chess.play = 0
-    chess.full_move_count = 1
-    chess.move_order.clear()
-    chess.zobrist = full_hash(chess)
-    #The piece sets were built from the start position in __init__
-    chess.white_pieces = {(r, c) for r in range(8) for c in range(8)
-                          if board[r][c] > 0}
-    chess.black_pieces = {(r, c) for r in range(8) for c in range(8)
-                          if board[r][c] < 0}
-    #After the piece sets, because it counts over them
-    chess.phase = chess.count_phase()
-    return chess
-
-
-def square_name(row, col):
-    return "abcdefgh"[col] + str(8 - row)
-
-
-def move_name(origin, move):
-    name = square_name(*origin) + square_name(move.row, move.col)
-    if move.promotion:
-        name += "nbrq"[[KNIGHT, BISHOP, ROOK, QUEEN].index(move.promotion)]
-    return name
-
+from core.notation import from_fen, to_fen, move_name
 
 # ---------------------------------------------------------------------------
 # State snapshot, for verifying that undo_move restores everything
@@ -157,12 +63,59 @@ SNAPSHOT_FIELDS = (
 )
 
 
-def describe_diff(before, after):
+def describe_diff(before, after, fields=SNAPSHOT_FIELDS):
     out = []
-    for name, a, b in zip(SNAPSHOT_FIELDS, before, after):
+    for name, a, b in zip(fields, before, after):
         if a != b:
             out.append(f"{name}: {a!r} -> {b!r}")
     return out
+
+
+# ---------------------------------------------------------------------------
+# FEN round trip, for verifying to_fen against from_fen
+# ---------------------------------------------------------------------------
+
+#Everything a FEN is supposed to carry, plus the state derived from it.
+#Deliberately narrower than snapshot(): move_order, position_counts and game
+#are history, and no FEN could carry them.
+def fen_state(chess):
+    return (
+        tuple(tuple(row) for row in chess.chess_board),
+        chess.side_to_move,
+        chess.white_king_pos, chess.black_king_pos,
+        chess.white_king_castle, chess.white_queen_castle,
+        chess.black_king_castle, chess.black_queen_castle,
+        tuple(sorted(chess.en_passant.items())),
+        chess.half_move_clock, chess.play, chess.full_move_count,
+        chess.zobrist, chess.phase,
+        tuple(sorted(chess.white_pieces)),
+        tuple(sorted(chess.black_pieces)),
+    )
+
+
+FEN_FIELDS = (
+    "chess_board", "side_to_move", "white_king_pos", "black_king_pos",
+    "white_king_castle", "white_queen_castle", "black_king_castle",
+    "black_queen_castle", "en_passant", "half_move_clock", "play",
+    "full_move_count", "zobrist", "phase", "white_pieces", "black_pieces",
+)
+
+
+def roundtrip_diffs(chess):
+    """
+    Empty when this position survives being written out and read back.
+
+    Checks both directions at once: from_fen(to_fen(pos)) has to be the same
+    position, and writing that rebuilt position has to give back the same
+    string.
+    """
+    fen = to_fen(chess)
+    rebuilt = from_fen(fen)
+    diffs = describe_diff(fen_state(chess), fen_state(rebuilt), FEN_FIELDS)
+    again = to_fen(rebuilt)
+    if again != fen:
+        diffs.append(f"to_fen: {fen!r} -> from_fen -> to_fen -> {again!r}")
+    return diffs
 
 
 # ---------------------------------------------------------------------------
@@ -177,6 +130,7 @@ class Failures:
         self.hash_count = 0
         self.state_count = 0
         self.sets_count = 0
+        self.fen_count = 0
         self.samples = []
 
     def hash_bad(self, chess, path):
@@ -194,6 +148,16 @@ class Failures:
             self.samples.append(
                 f"  PIECE SETS after {' '.join(path)}\n      {detail}")
 
+    def fen_bad(self, path, diffs):
+        self.fen_count += 1
+        if len(self.samples) < self.limit:
+            joined = "\n      ".join(diffs)
+            self.samples.append(
+                f"  FEN round trip changed the position at "
+                f"{' '.join(path) or '(root)'}\n"
+                f"      {joined}"
+            )
+
     def state_bad(self, path, diffs):
         self.state_count += 1
         if len(self.samples) < self.limit:
@@ -205,7 +169,7 @@ class Failures:
 
 
 def perft(chess, depth, check_hash=False, check_state=False,
-          check_sets=False, failures=None, path=None):
+          check_sets=False, check_fen=False, failures=None, path=None):
     if depth == 0:
         return 1
     if path is None:
@@ -228,6 +192,11 @@ def perft(chess, depth, check_hash=False, check_state=False,
         if check_hash and chess.zobrist != full_hash(chess):
             failures.hash_bad(chess, path)
 
+        if check_fen:
+            diffs = roundtrip_diffs(chess)
+            if diffs:
+                failures.fen_bad(path, diffs)
+
         if check_sets:
             board = chess.chess_board
             true_w = {(r, c) for r in range(8) for c in range(8)
@@ -248,7 +217,7 @@ def perft(chess, depth, check_hash=False, check_state=False,
                     f"pseudo_legal_moves has {len(sets)}")
 
         total += perft(chess, depth - 1, check_hash, check_state,
-                       check_sets, failures, path)
+                       check_sets, check_fen, failures, path)
         undo_move(chess)
         path.pop()
 
@@ -306,13 +275,20 @@ SUITE = [
 ]
 
 
-def run_suite(max_depth, check_hash, check_state, check_sets, time_budget):
+def run_suite(max_depth, check_hash, check_state, check_sets, check_fen,
+              time_budget):
     passed = failed = skipped = 0
     all_failures = Failures()
 
     for name, fen, expected in SUITE:
         print(f"\n{name}")
         print(f"  {fen}")
+        #The per-node check only sees positions a move led to, so the root
+        #of each position gets checked here
+        if check_fen:
+            diffs = roundtrip_diffs(from_fen(fen))
+            if diffs:
+                all_failures.fen_bad([], diffs)
         for depth in sorted(expected):
             if depth > max_depth:
                 skipped += 1
@@ -320,7 +296,7 @@ def run_suite(max_depth, check_hash, check_state, check_sets, time_budget):
             chess = from_fen(fen)
             start = time.time()
             got = perft(chess, depth, check_hash, check_state, check_sets,
-                        all_failures)
+                        check_fen, all_failures)
             elapsed = time.time() - start
             want = expected[depth]
 
@@ -366,6 +342,13 @@ def run_suite(max_depth, check_hash, check_state, check_sets, time_budget):
         else:
             print("piece sets:      match the board at every node")
 
+    if check_fen:
+        if all_failures.fen_count:
+            print(f"fen round trip:  {all_failures.fen_count:,} positions that "
+                  f"changed when written out and read back")
+        else:
+            print("fen round trip:  to_fen/from_fen agreed at every node")
+
     if all_failures.samples:
         print("\nfirst few problems:")
         for sample in all_failures.samples:
@@ -373,7 +356,8 @@ def run_suite(max_depth, check_hash, check_state, check_sets, time_budget):
 
     print("=" * 66)
     return (failed == 0 and not all_failures.hash_count
-            and not all_failures.state_count and not all_failures.sets_count)
+            and not all_failures.state_count and not all_failures.sets_count
+            and not all_failures.fen_count)
 
 
 def main():
@@ -389,8 +373,10 @@ def main():
                         help="verify undo_move restores every field")
     parser.add_argument("--sets", action="store_true",
                         help="verify piece sets match the board")
+    parser.add_argument("--roundtrip", action="store_true",
+                        help="verify to_fen/from_fen round trip at every node")
     parser.add_argument("--all", action="store_true",
-                        help="same as --hash --state --sets")
+                        help="same as --hash --state --sets --roundtrip")
     parser.add_argument("--budget", type=float, default=30.0,
                         help="seconds before skipping deeper depths (default 30)")
     args = parser.parse_args()
@@ -398,6 +384,7 @@ def main():
     check_hash = args.hash or args.all
     check_state = args.state or args.all
     check_sets = args.sets or args.all
+    check_fen = args.roundtrip or args.all
 
     if args.divide:
         chess = from_fen(args.fen)
@@ -409,7 +396,8 @@ def main():
         print(f"\n  {len(results)} moves, {sum(c for _, c in results):,} nodes")
         return 0
 
-    ok = run_suite(args.depth, check_hash, check_state, check_sets, args.budget)
+    ok = run_suite(args.depth, check_hash, check_state, check_sets, check_fen,
+                   args.budget)
     return 0 if ok else 1
 
 

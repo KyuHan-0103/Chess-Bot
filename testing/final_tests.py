@@ -3,7 +3,7 @@ final_tests.py -- end-to-end regression suite.
 
 perft.py checks move generation and the board invariants. This checks the
 things above that layer: the search, the transposition table, the clock,
-endgame detection, and the awkward edge cases.
+endgame detection, FEN notation, and the awkward edge cases.
 
     python3 final_tests.py
 """
@@ -16,7 +16,8 @@ from core.board import Chess
 from core.constants import MATE, PIECE_VALUES
 from core.movegen import (Move, pseudo_legal_moves, legal_move_list,
                      get_castling_rights)
-from testing.perft import from_fen
+from core.notation import from_fen, to_fen
+from testing.perft import Failures, perft, roundtrip_diffs
 from core.rules import make_move, undo_move, game_result, has_legal_move
 from core.zobrist import full_hash
 from engine.evaluate import self_evaluate
@@ -230,6 +231,64 @@ def test_edge_cases():
           f"{len(castles)} offered")
 
 
+def test_fen_roundtrip():
+    print("\nFEN round trip")
+
+    #Canonical FENs: all six fields, and any en passant square is one a pawn
+    #can actually use, so to_fen has to give the string back unchanged
+    canonical = (
+        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
+        "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1",
+        "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1",
+        "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 3 9",
+        "rnbqkbnr/ppp1p1pp/8/3pPp2/8/8/PPPP1PPP/RNBQKBNR w KQkq f6 0 4",
+        "8/P7/8/8/8/8/8/K6k b - - 12 37",
+        "4k3/8/8/8/8/8/8/4K3 w - - 99 150",
+    )
+    for fen in canonical:
+        got = to_fen(from_fen(fen))
+        check(f"unchanged: {fen[:30]}...", got == fen, "" if got == fen else got)
+
+    check("Chess() writes the start position", to_fen(Chess()) == canonical[0],
+          to_fen(Chess()))
+
+    #The other direction, on positions that were played rather than parsed:
+    #from_fen(to_fen(pos)) has to be the same position, field for field
+    chess = Chess()
+    for origin, target in (((6, 4), Move(4, 4)), ((1, 4), Move(3, 4)),
+                           ((7, 6), Move(5, 5)), ((0, 1), Move(2, 2)),
+                           ((7, 5), Move(4, 2)), ((1, 3), Move(3, 3)),
+                           ((4, 4), Move(3, 3))):
+        make_move(chess, origin, target)
+    diffs = roundtrip_diffs(chess)
+    check("a played position survives to_fen -> from_fen", not diffs,
+          "; ".join(diffs))
+
+    #Every node of a shallow tree, which is where the fiddly cases live:
+    #en passant appearing and expiring, castling rights being lost,
+    #promotions, and the half move clock resetting on captures
+    for name, fen, depth in (
+            ("kiwipete", "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -", 2),
+            ("en passant / promotion", "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - -", 3),
+            ("promotions and pins", "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq -", 2)):
+        failures = Failures()
+        perft(from_fen(fen), depth, check_fen=True, failures=failures)
+        check(f"{name}: round trip holds at every node to depth {depth}",
+              failures.fen_count == 0,
+              failures.samples[0] if failures.samples else "")
+
+    #Documented asymmetry: an en passant square is only stored when a capture
+    #is available, so a FEN offering one no pawn can use is rewritten as "-".
+    #Rewritten once, then stable -- to_fen output is always a fixed point
+    unusable = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"
+    once = to_fen(from_fen(unusable))
+    check("an unusable en passant square is dropped",
+          once.split()[3] == "-", once)
+    check("and dropping it is stable under further round trips",
+          to_fen(from_fen(once)) == once, to_fen(from_fen(once)))
+
+
 def test_selfplay():
     print("\nself-play game (real gameplay path)")
     chess = Chess()
@@ -267,6 +326,7 @@ if __name__ == "__main__":
     test_mate_and_draws()
     test_move_generators_agree()
     test_edge_cases()
+    test_fen_roundtrip()
     test_selfplay()
 
     assert self_evaluate(Chess()) == 0
