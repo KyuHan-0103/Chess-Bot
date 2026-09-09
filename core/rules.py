@@ -316,11 +316,51 @@ def has_legal_move(chess):
             return True
     return False
 
+#Neither side has enough material left to force a mate, so the game is drawn
+#no matter how long it goes on.
+#
+#The piece count is the gate, and it is O(1) on sets we already maintain
+#incrementally, so this costs one addition and one comparison in the
+#overwhelming majority of positions. chess.phase looks like a cheaper gate but
+#is the wrong one: PHASE_VALUES[PAWN] is 0, so phase == 0 is true of any
+#pawns-and-kings position, which is emphatically not a draw.
+#
+#The list is deliberately conservative. KBN vs K is a forced win and KNN vs K
+#is only a draw with best play, so neither belongs here: claiming a draw that
+#is not one corrupts a result, while missing one merely costs a little time.
+def insufficient_material(chess):
+    if len(chess.white_pieces) + len(chess.black_pieces) > 4:
+        return False
+
+    board = chess.chess_board
+    #Bishops are kept as square colours, because two bishops drawn only when
+    #they are on the same colour
+    minors = {1: [], -1: []}
+    for row, col in chess.white_pieces | chess.black_pieces:
+        piece = board[row][col]
+        kind = abs(piece)
+        if kind == KING:
+            continue
+        #A single pawn, rook or queen is already enough to mate with
+        if kind in (PAWN, ROOK, QUEEN):
+            return False
+        minors[side_of(piece)].append((row + col) % 2 if kind == BISHOP else None)
+ 
+    white, black = minors[1], minors[-1]
+    #K v K, and K + one minor v K either way
+    if len(white) + len(black) <= 1:
+        return True
+    #K + B v K + B, drawn only with both bishops on one colour
+    if len(white) == 1 and len(black) == 1:
+        return white[0] is not None and white[0] == black[0]
+    return False
 #None while the game is live, otherwise the reason it ended.
 #Call this AFTER a move has been made, to judge the position the mover left.
 def game_result(chess):
     if chess.game is not None:
         return chess.game                      # repetition or fifty move, already set
+    if insufficient_material(chess):
+        return "Draw by insufficient material"
     if has_legal_move(chess):
         return None
     if in_check(chess, chess.side_to_move):
