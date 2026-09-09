@@ -363,8 +363,8 @@ def initiate_board(square_board_frame, chess_matrix) -> None:
             if square != 0:
                 place_piece(r, c, square, cell)
 
-def cpu_move():
-    move, value = search(STATE["chess"], DEPTH, time_limit=TIME_LIMIT)
+def cpu_move(engine):
+    move, value = engine.search(STATE["chess"], DEPTH, time_limit=TIME_LIMIT)
     if move is None:
         print("game over:", game_result(STATE["chess"]) or "no legal moves" )
         return
@@ -399,6 +399,8 @@ def play_game(chess):
 
     #Catches clicks that land outside the board
     window.bind("<Button-1>", on_window_click)
-    window.bind("<space>", lambda event: cpu_move())
+    engine = alpha_beta_engine()
+
+    window.bind("<space>", lambda event: cpu_move(engine))
     
     window.mainloop()

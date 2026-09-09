@@ -29,7 +29,7 @@ NO_SQUARE = (-1, -1)
 #MATE value for search algs
 MATE = 100000
 
-ROW_CODE = {"a": 0, "b": 1, "c": 2, "d": 3, "e": 4, "f": 5, "g": 6, "h": 7}
+COLUMN_CODE = {"a": 0, "b": 1, "c": 2, "d": 3, "e": 4, "f": 5, "g": 6, "h": 7}
 UCI_PROMOTION = {"q": QUEEN, "r": ROOK, "b": BISHOP, "n": KNIGHT}
 #Because python indexing wraps around, use this function to ensure the coords are on the board
 def on_board(r, c):

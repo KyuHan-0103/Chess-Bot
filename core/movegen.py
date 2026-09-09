@@ -231,6 +231,26 @@ def get_castling_rights(chess, side):
             return []
     return[]
 
+#TO DO: Convert get_legal_moves and legal_move_list to one pseudo_legal_moves function
+def get_legal_moves(chess):
+    board = chess.chess_board
+    side = chess.side_to_move
+    move_list = {}
+    for r, row in enumerate(board):
+        for c, piece in enumerate(row):
+            if piece != 0 and side_of(board[r][c]) == side:
+                move_list[(r, c)] = available_moves(chess, r, c)
+    
+    return move_list
+
+#Legal moves as a flat list, so a cutoff can break out of ONE loop
+def legal_move_list(chess):
+    moves = []
+    for origin, targets in get_legal_moves(chess).items():
+        for target in targets:
+            moves.append((origin, target))
+    return moves
+
 def pseudo_legal_moves(chess):
     side = chess.side_to_move
     squares = chess.white_pieces if side > 0 else chess.black_pieces

@@ -1,0 +1,3674 @@
+
+
+===== .gitignore =====
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# macOS
+.DS_Store
+
+# Editors
+.vscode/
+.idea/
+
+# Secrets
+.env
+
+
+===== Chess-Bot.code-workspace =====
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {}
+}
+
+===== Nature-of-Code/genetic_evolution.py =====
+"""
+Purpose of this program is to "simulate" genetic evolution
+
+Step 1: Create a population of N elements, each with randomly generated DNA (properties)
+
+Step 2: Selection
+    - Evaluate Fitness
+        - to evaluate fitness, a function producing the "fitness" score is created
+    - Create a mating pool
+        - to choose which element "deserves" to be "bred" we could be elitist and take the best
+        - or we could take the top 50%, but those are solutions made simply out of ease
+        - instead we can make a wheel of "fortune." The chance each element has of being selected
+        - to be reproduced is equal to its "fitness" score / total fitness of the entire population
+
+Step 3: Reproduction
+    - Crossover
+        - Multiple options for this: could do 50/50 or just choose a random midpoint
+        - could coin toss for each gene
+    - Mutation
+        - Mutation is described by rate. A given genetic alg may have a 0.1 percent chance of
+        - mutation
+
+Step 4: Repetition
+    - Return to step two and repeat
+
+Two genomes live here, both following those four steps:
+
+    DNA        a sequence of random force vectors, one per frame of a vehicle's
+               lifespan. This is the genome the flock in objects.py evolves.
+    StringDNA  the original demo, guessing a word one character at a time.
+               Run this file directly to watch it: python genetic_evolution.py
+"""
+
+import random
+import string
+import math
+
+import numpy as np
+
+MUTATION_RATE = 0.01
+
+#One generator for the whole simulation, seeded from the OS
+rng = np.random.default_rng()
+
+
+class DNA:
+    """A sequence of steering forces, one gene per frame of a lifespan.
+
+    A gene is a random vector: a random heading scaled by a random magnitude
+    no larger than the force its vehicle is able to apply. Play the genes back
+    in order and you get the whole flight path, so the genome *is* the
+    behaviour -- there is no steering logic left to write.
+    """
+
+    def __init__(self, lifespan, max_force, genes=None):
+        self.lifespan = int(lifespan)
+        self.max_force = float(max_force)
+
+        #Step 1: random DNA, unless we were handed genes by a crossover
+        if genes is None:
+            genes = np.array([self.random_gene() for _ in range(self.lifespan)])
+        self.genes = genes
+
+    def random_gene(self):
+        angle = rng.uniform(0, 2 * np.pi)
+        magnitude = rng.uniform(0, self.max_force)
+        return np.array([np.cos(angle), np.sin(angle)]) * magnitude
+
+    #Step 3: Crossover. A coin toss per gene, same as the string demo below
+    def crossover(self, partner):
+        mine = rng.random(self.lifespan) < 0.5
+        #mine[:, None] broadcasts the per-gene choice across both x and y, so a
+        #gene is inherited whole rather than split into one parent's x and the
+        #other's y, which would be a direction neither parent ever had
+        genes = np.where(mine[:, None], self.genes, partner.genes)
+        return DNA(self.lifespan, self.max_force, genes)
+
+    #Step 3: Mutation. Every gene gets an independent roll of the dice
+    def mutate(self, rate=MUTATION_RATE):
+        for i in range(self.lifespan):
+            if rng.random() < rate:
+                self.genes[i] = self.random_gene()
+
+
+class StringDNA:
+    """The original demo genome: one lowercase character per gene."""
+
+    def __init__(self, target):
+        self.genes = []
+        self.length = len(target)
+        self.target = target
+        self.fitness = 0.01
+
+        self.pool = string.ascii_lowercase + " "
+        for i in range(self.length):
+            self.genes.append(random.choice(self.pool))
+
+    def fitness_evaluation(self):
+        #"fitness" = number of correct characters
+        score = 0
+        for i in range(len(self.genes)):
+            if self.genes[i] == self.target[i]:
+                score += 1
+        self.fitness = score / len(self.genes)
+
+    def crossover(self, partner):
+        child = StringDNA(self.target)
+        for i in range(self.length):
+            if random.random() < 0.5:
+                child.genes[i] = self.genes[i]
+            else:
+                child.genes[i] = partner.genes[i]
+        return child
+
+    def mutate(self):
+        for i in range(len(self.genes)):
+            num = random.random()
+            if num < 0.01:
+                self.genes[i] = random.choice(self.pool)
+
+
+POPULATION = []
+COUNT = 0
+TARGET = list('cattle')
+
+def setup():
+    global TARGET
+    for i in range(150):
+        POPULATION.append(StringDNA(TARGET))
+
+def draw():
+    global COUNT
+    global POPULATION
+
+    #Get fitness score for each element
+    for element in POPULATION:
+        element.fitness_evaluation()
+        guess = ''.join(element.genes)
+        COUNT += 1
+        print(f"{COUNT}: {guess}")
+        if element.genes == element.target:
+            print(f"{COUNT}: {guess} WINNER!")
+            return True
+
+    #Create mating pool
+    mating_pool = []
+    for e in POPULATION:
+        n = math.floor(e.fitness * 100)
+
+        for i in range(n):
+            mating_pool.append(e)
+
+
+    children = []
+    for i in range(len(POPULATION)):
+        parent_A = random.choice(mating_pool)
+        parent_B = random.choice(mating_pool)
+        child = parent_A.crossover(parent_B)
+        child.mutate()
+        children.append(child)
+
+    POPULATION[:] = children
+
+    return False
+
+
+def main():
+    setup()
+    while True:
+        if draw():
+            break
+
+if __name__ == "__main__":
+    main()
+
+
+===== Nature-of-Code/gesture.csv =====
+x,y,label
+-397,253,left
+-37,430,down
+67,534,down
+-587,-517,left
+-814,31,left
+-107,710,down
+-129,645,down
+-50,-629,up
+336,-291,right
+-214,-436,up
+
+
+===== Nature-of-Code/mouse_gesture_data.py =====
+import tkinter as tk
+import pandas as pd
+class gesture_capture():
+
+    def __init__(self, window):
+        self.initial_x = None
+        self.initial_y = None
+        self.window = window
+
+        self.canvas = tk.Canvas(window, bg="white")
+        self.canvas.pack(fill=tk.BOTH, expand=True)
+
+        self.current_ID = None
+        self.data = []
+        self.canvas.bind("<Button-1>", self.on_click)
+        self.canvas.bind("<B1-Motion>", self.on_drag)
+        self.canvas.bind("<ButtonRelease-1>", self.on_release)
+
+    def on_click(self, event):
+        self.initial_x = event.x
+        self.initial_y = event.y
+        
+    def on_drag(self, event):
+        # 3. Clear the previous frame's line so it doesn't leave a trail
+        if self.current_ID:
+            self.canvas.delete(self.current_ID)
+        
+        # Draw a new line from the initial click to the current mouse position
+        self.current_ID = self.canvas.create_line(
+            self.initial_x, self.initial_y, event.x, event.y, 
+            fill="blue", width=5
+        )
+    
+    def on_release(self, event):
+        if self.current_ID:
+            self.canvas.delete(self.current_ID)
+            self.current_ID = None
+        
+        delta_x = event.x - self.initial_x
+        delta_y = event.y - self.initial_y
+        label = self.determine_direction(delta_x, delta_y)
+        self.add_data_point(delta_x, delta_y, label)
+
+    def add_data_point(self, x, y, label):
+        new_row = {
+            "x": x,
+            "y": y,
+            "label": label
+        }
+        self.data.append(new_row)
+
+    def determine_direction(self, delta_x, delta_y):
+        if abs(delta_x) > abs(delta_y):
+            if delta_x > 0: return "right"
+            else: return "left"
+        else:
+            if delta_y > 0: return "down"
+            else: return "up"
+def main():
+    canvas = tk.Tk()
+    canvas.geometry("1000x800")
+    capture = gesture_capture(canvas)
+
+    # Keep the window running manually while data is less than 10
+    while len(capture.data) < 10:
+        try:
+            # Manually process Tkinter events and redraw the window
+            canvas.update_idletasks()
+            canvas.update()
+        except tk.TclError:
+            # Handles the case where the user closes the window manually before reaching 10 rows
+            break
+
+    # Once the loop breaks (because length reached 10), destroy the window
+    try:
+        canvas.destroy()
+    except tk.TclError:
+        # Window was already manually closed
+        pass
+
+    df = pd.DataFrame(capture.data)
+    df.to_csv('gesture.csv', index=False)
+
+if __name__ == "__main__":
+    main()
+
+
+
+===== Nature-of-Code/objects.py =====
+import numpy as np
+import math
+from genetic_evolution import DNA, MUTATION_RATE, rng
+
+#How many frames one generation gets to reach the target. A vehicle carries
+#exactly this many genes, so its lifespan and its DNA are the same length.
+LIFESPAN = 300
+
+
+#An obstacle is a closed polygon, stored as its own coordinates in the same
+#flat [x0, y0, x1, y1, ...] order tkinter's create_polygon takes. Keeping the
+#geometry here means collision is exact math on the points, independent of
+#whatever the canvas happens to be drawing.
+class Obstacle:
+    def __init__(self, *coords):
+        #Accepts either Obstacle(410, 700, 410, 430, ...) or a single list of
+        #the same numbers, so it can share a call with create_polygon
+        if len(coords) == 1:
+            coords = coords[0]
+        self.points = np.asarray(coords, dtype=float).reshape(-1, 2)
+
+    #Each vertex paired with the one after it, wrapping the last back to the
+    #first so the polygon closes
+    def edges(self):
+        return self.points, np.roll(self.points, -1, axis=0)
+
+    #True if the point is inside the polygon, or within margin of its outline.
+    #A margin of the vehicle's radius is what turns "inside" into "touching".
+    def contains(self, point, margin=0.0):
+        px, py = float(point[0]), float(point[1])
+        a, b = self.edges()
+
+        #Ray casting: fire a ray to the right of the point and count the edges
+        #it crosses. Odd means inside, even means outside.
+        straddles = (a[:, 1] > py) != (b[:, 1] > py)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            #Where along each edge the ray's y sits, and the x it crosses at
+            t = (py - a[:, 1]) / (b[:, 1] - a[:, 1])
+            crossing_x = a[:, 0] + t * (b[:, 0] - a[:, 0])
+        if np.count_nonzero(straddles & (px < crossing_x)) % 2 == 1:
+            return True
+
+        #Outside, but a body of some size can still be up against an edge
+        return margin > 0.0 and self.distance(point) <= margin
+
+    #Shortest distance from a point to the polygon's outline
+    def distance(self, point):
+        p = np.asarray(point, dtype=float)
+        a, b = self.edges()
+
+        edge = b - a
+        length_sq = np.sum(edge * edge, axis=1)
+        #How far along each edge its closest point sits, clamped to the ends so
+        #a point off the side of an edge measures to the nearer vertex instead.
+        #Zero-length edges divide by 1 and clamp to t=0, i.e. the vertex itself.
+        t = np.sum((p - a) * edge, axis=1) / np.where(length_sq == 0.0, 1.0, length_sq)
+        closest = a + np.clip(t, 0.0, 1.0)[:, None] * edge
+        return float(np.min(np.linalg.norm(p - closest, axis=1)))
+
+
+class Vehicle:
+    def __init__(self, x, y, target, obstacles, width=1000, height=700, dna=None):
+        #Every generation restarts from the same launch point, so the only
+        #thing separating a good run from a bad one is the DNA
+        self.start = np.array([x, y], dtype=float)
+        self.position = self.start.copy()
+        self.velocity = np.array([0, 0], dtype=float)
+        self.acceleration = np.array([0, 0], dtype=float)
+
+        self.radius_size = 8.0
+
+        self.max_speed = 8.0
+        self.max_force = 0.4
+
+        #Canvas size, kept for reference. Nothing confines a vehicle to it:
+        #it is free to fly off the window and steer its way back.
+        self.width = float(width)
+        self.height = float(height)
+
+        #Step 1: a randomly generated genome, unless we were bred from parents
+        self.dna = dna if dna is not None else DNA(LIFESPAN, self.max_force)
+
+        self.fitness = 0.0
+        self.arrived = False
+        self.arrival_frame = None
+        self.hit_obstacle = False
+        #The point this vehicle is trying to reach, handed down by the population
+        self.set_target(target)
+
+        self.obstacles = obstacles
+
+    #Copy the target so every vehicle keeps its own array and a later click
+    #can't mutate it out from under the fitness math mid-frame
+    def set_target(self, target):
+        self.target = np.array(target, dtype=float)
+        #A vehicle parked on the old target has not reached the new one, so it
+        #goes back to flying its remaining genes rather than sitting there
+        self.arrived = False
+        self.arrival_frame = None
+
+    def update(self, frame):
+        #A vehicle that has already made it just sits on the target
+        if self.hit_obstacle or self.arrived or frame >= self.dna.lifespan:
+            return
+
+        #The gene for this frame *is* the steering force for this frame
+        self.apply_force(self.dna.genes[frame])
+
+        #Update velocity
+        self.velocity += self.acceleration
+        self.velocity = self.limit(self.velocity, self.max_speed)
+        #Update pos
+        self.position += self.velocity
+
+        self.acceleration *= 0
+
+        if np.linalg.norm(self.target - self.position) < self.radius_size * 2:
+            self.arrived = True
+            self.arrival_frame = frame
+
+        self.check_obstacles()
+
+    #A run is over the moment the vehicle's body meets an obstacle. The radius
+    #is the margin, so grazing an edge counts as a hit and not just flying
+    #dead centre into one.
+    def check_obstacles(self):
+        for obstacle in self.obstacles:
+            if obstacle.contains(self.position, self.radius_size):
+                self.hit_obstacle = True
+                return
+
+    #Step 2: how close did this genome get? Nearer is better, and actually
+    #arriving is worth far more than merely hovering nearby.
+    def evaluate_fitness(self):
+        distance = np.linalg.norm(self.target - self.position)
+        arrival_time = self.dna.lifespan
+        if self.arrived:
+            arrival_time = max(self.arrival_frame, 1)
+        #+1 keeps a vehicle sitting exactly on the target from dividing by zero
+        self.fitness = 1.0 / (arrival_time + distance)
+
+        self.fitness = math.pow(self.fitness, 2)
+        if self.hit_obstacle:
+            self.fitness *= 0.1
+
+        if self.arrived:
+            self.fitness *= 4
+        return self.fitness
+
+    #Limit a vector
+    def limit(self, curr_vector, limit_vector):
+        cur_speed = np.linalg.norm(curr_vector)
+        if cur_speed > limit_vector:
+            curr_vector = (curr_vector/cur_speed) * limit_vector
+        return curr_vector
+
+    def apply_force(self, force):
+        self.acceleration += force
+
+    # A triangle pointing in the direction of velocity, in world coordinates.
+    # Returns a flat [x0, y0, x1, y1, x2, y2] list for Canvas.coords().
+    def shape_points(self):
+        angle = np.arctan2(self.velocity[1], self.velocity[0])
+        cos_a, sin_a = np.cos(angle), np.sin(angle)
+        r = self.radius_size
+
+        local = ((2 * r, 0.0), (-2 * r, -r), (-2 * r, r))
+        points = []
+        for x, y in local:
+            points.append(self.position[0] + x * cos_a - y * sin_a)
+            points.append(self.position[1] + x * sin_a + y * cos_a)
+        return points
+
+
+#Owns the flock and runs the genetic algorithm over it. It is also the single
+#place the target lives between the sketch and the individual vehicles:
+#Sketch -> Population -> Vehicle.
+class Population:
+    def __init__(self, count, target, obstacle1, obstacle2, width=800, height=600,
+                 lifespan=LIFESPAN, mutation_rate=MUTATION_RATE):
+        self.width = float(width)
+        self.height = float(height)
+        self.target = np.array(target, dtype=float)
+
+        self.obstacles = [obstacle1, obstacle2]
+        self.lifespan = lifespan
+        self.mutation_rate = mutation_rate
+        self.generation = 1
+        self.frame = 0
+
+        #The whole flock launches from the bottom middle of the canvas
+        self.start = np.array([self.width / 2, self.height - 40], dtype=float)
+
+        self.vehicles = []
+        for i in range(count):
+            self.vehicles.append(
+                Vehicle(self.start[0], self.start[1],
+                        self.target, self.obstacles, self.width, self.height))
+
+    #Push a new target down to every vehicle
+    def set_target(self, target):
+        self.target = np.array(target, dtype=float)
+        for vehicle in self.vehicles:
+            vehicle.set_target(self.target)
+
+    def update(self):
+        #Step 4: the generation has lived out its lifespan, so breed the next one
+        if self.frame >= self.lifespan:
+            self.evolve()
+            return
+
+        for vehicle in self.vehicles:
+            vehicle.update(self.frame)
+        self.frame += 1
+
+    #Step 2: Selection. A wheel of fortune, built by giving each vehicle a
+    #number of tickets proportional to its fitness, so a vehicle twice as fit
+    #as another is twice as likely to be picked as a parent.
+    def mating_pool(self):
+        best = max(vehicle.evaluate_fitness() for vehicle in self.vehicles)
+
+        pool = []
+        for vehicle in self.vehicles:
+            #Scaled against the best of the generation, so the fittest vehicle
+            #always gets the full 100 tickets no matter how far off it landed
+            vehicle.fitness /= best
+            for i in range(int(vehicle.fitness * 100)):
+                pool.append(vehicle)
+        return pool
+
+    #Step 3: Reproduction, then back to a fresh run from the launch point
+    def evolve(self):
+        pool = self.mating_pool()
+
+        children = []
+        for i in range(len(self.vehicles)):
+            parent_a = pool[rng.integers(len(pool))]
+            parent_b = pool[rng.integers(len(pool))]
+            child_dna = parent_a.dna.crossover(parent_b.dna)
+            child_dna.mutate(self.mutation_rate)
+            children.append(
+                Vehicle(self.start[0], self.start[1], self.target,
+                        self.obstacles, self.width, self.height, child_dna))
+
+        self.vehicles = children
+        self.frame = 0
+        self.generation += 1
+
+    #How the generation currently on screen is doing, for the sketch to display
+    def arrived_count(self):
+        return sum(1 for vehicle in self.vehicles if vehicle.arrived)
+
+    def closest_distance(self):
+        return min(float(np.linalg.norm(self.target - vehicle.position))
+                   for vehicle in self.vehicles)
+
+
+===== Nature-of-Code/sketch.py =====
+"""The Nature of Code -- evolving a flock of vehicles with a genetic algorithm.
+
+Nothing here knows how to steer. Each vehicle carries DNA: one random force
+vector per frame of its lifespan, played back in order. Most of the first
+generation wanders off, but the ones that drift nearest the target get the most
+tickets in the mating pool, so their genes dominate the next generation. Over a
+few dozen generations the flock evolves a flight path to the target.
+
+Click anywhere on the canvas to drop a new target at the mouse position.
+
+tkinter port of sketch.js. Run with:  python sketch.py
+"""
+
+import tkinter as tk
+
+import numpy as np
+
+from objects import LIFESPAN, Population, Obstacle
+
+WIDTH, HEIGHT = 1000, 700
+FRAME_MS = 16          # ~60 fps, p5's default frame rate
+GREY = "#7f7f7f"       # p5's fill(127)
+GREEN = "#4caf50"      # a vehicle that reached the target
+BLACK = "#000000"      # p5's stroke(0)
+STROKE = 2             # p5's strokeWeight(2)
+TARGET_DIAMETER = 48
+POPULATION_SIZE = 100
+# Centred horizontally and lifted above the middle of the canvas
+TARGET_START = (WIDTH / 2, HEIGHT / 4)
+
+
+class Sketch:
+    """Equivalent of setup() plus draw()."""
+
+    def __init__(self, root):
+        self.canvas = tk.Canvas(
+            root,
+            width=WIDTH,
+            height=HEIGHT,
+            bg="white",              # p5's background(255)
+            highlightthickness=0,    # style.css: no border, no padding
+        )
+        self.canvas.pack()
+
+        # The sketch owns the target and hands it to the population, which
+        # hands it to each vehicle.
+        self.target = np.array(TARGET_START, dtype=float)
+
+        self.obstacle1_id = self.canvas.create_polygon(410, 460, 410, 430, 80, 220, 80, 600, fill=GREY, outline=BLACK)
+        self.obstacle2_id = self.canvas.create_polygon(410, 360, 410, 330, 80, 120, 80, 150, fill=GREY, outline=BLACK)
+        self.obstacle1 = Obstacle(410, 460, 410, 430, 80, 220, 80, 600)
+        self.obstacle2 = Obstacle(410, 360, 410, 330, 80, 120, 80, 150)
+        
+        self.population = Population(POPULATION_SIZE, self.target, self.obstacle1, self.obstacle2, WIDTH, HEIGHT)
+
+        # Canvas items are created once and repositioned each frame. tkinter's
+        # canvas is retained, not cleared-and-redrawn like a p5 sketch, so
+        # moving existing items avoids the flicker you'd get from calling
+        # delete("all") sixty times a second.
+        self.vehicle_ids = []
+        for vehicle in self.population.vehicles:
+            self.vehicle_ids.append(self.canvas.create_polygon(
+                0, 0, 0, 0, 0, 0, fill=GREY, outline=BLACK, width=STROKE
+            ))
+        # Recolouring is the one thing worth tracking, since setting a fill that
+        # is already set still dirties the item and forces a redraw.
+        self.vehicle_fills = [GREY] * len(self.vehicle_ids)
+
+        self.target_id = self.canvas.create_oval(
+            0, 0, 0, 0, fill=GREY, outline=BLACK, width=STROKE
+        )
+        self.draw_target()
+
+        self.status_id = self.canvas.create_text(
+            12, 12, anchor="nw", fill=BLACK, font=("TkDefaultFont", 14), text=""
+        )
+
+        # p5's mousePressed(): a click moves the target under the pointer
+        self.canvas.bind("<Button-1>", self.on_click)
+
+        self.draw()
+
+    def on_click(self, event):
+        """A new target appears wherever the mouse was clicked."""
+        self.set_target(event.x, event.y)
+
+    def set_target(self, x, y):
+        self.target = np.array([float(x), float(y)])
+        self.population.set_target(self.target)
+        self.draw_target()
+
+    def draw_target(self):
+        """Draw an ellipse at the target position."""
+        r = TARGET_DIAMETER / 2
+        self.canvas.coords(
+            self.target_id,
+            self.target[0] - r, self.target[1] - r,
+            self.target[0] + r, self.target[1] + r,
+        )
+
+    def draw(self):
+        # Live out one frame of this generation, or breed the next one
+        self.population.update()
+
+        vehicles = self.population.vehicles
+        for i, (vehicle, v_id) in enumerate(zip(vehicles, self.vehicle_ids)):
+            self.canvas.coords(v_id, *vehicle.shape_points())
+
+            fill = GREEN if vehicle.arrived else GREY
+            if fill != self.vehicle_fills[i]:
+                self.canvas.itemconfig(v_id, fill=fill)
+                self.vehicle_fills[i] = fill
+
+        self.canvas.itemconfig(self.status_id, text=(
+            f"generation {self.population.generation}    "
+            f"frame {self.population.frame}/{LIFESPAN}    "
+            f"arrived {self.population.arrived_count()}/{len(vehicles)}    "
+            f"closest {self.population.closest_distance():.0f}px"
+        ))
+
+        self.canvas.after(FRAME_MS, self.draw)
+
+
+def main():
+    root = tk.Tk()
+    root.title("The Nature of Code -- Genetic Algorithm")
+    root.geometry("1000x700")
+    Sketch(root)
+    root.mainloop()
+
+
+if __name__ == "__main__":
+    main()
+
+
+===== README.md =====
+**CHESS BOT**
+
+This program serves two purposes. One as a simple chess game you can play, and two a chess bot.
+
+Current state of chess bot:
+The engine is currently just an alpha-beta search engine. Its depth and time limit are knobs that can be tweaked in ui/gui.py
+The move order which it is searched in is currently sorted by:
+Saved moves from transposition table/best move from previous depths and then by MVV-LVA (Most Valuable Victim, Least Valuable Attacker)
+Instead of a simple dfs recursive search, the search is done through iterative deepening: search one depth one layer at a time. (Starting at 1 all the way to max_depth capped by the time limit)
+The engine also utilizes a quiescence search to follow capturing sequences and checking sequences
+
+**Project layout**
+```
+main.py       entry point (run with: python3 main.py)
+core/         the rules of chess (constants, board, zobrist, attacks, movegen, rules)
+engine/       deciding which move to play (search, evaluate, psqt, ordering)
+ui/           tkinter GUI
+assets/       piece icons
+testing/      perft and final_tests suites
+docs/         SPEC.md, PLANS.md
+```
+
+
+===== arena/__init__.py =====
+
+
+===== arena/match.py =====
+
+
+===== assets/piece_icons/black_bishop.png =====
+‰PNG
+
+   IHDR   <   <   :üÙr   sBIT|dˆ   	pHYs  ×  ×B(›x   tEXtSoftware www.inkscape.org›î<  iIDAThíš?l[UÆÇ±!QÓvpT¤Ä‚tIÊ‚D‡Ğ€ ) 
+KÛ(BlüQ“`E‚†” @#bQ$“‰X@¸HmB"Qdœ€œ8†g#SõÙïÅç½¸n>éÈ’ßõ¹ßç{Î½÷{EU¹•Ùkac_p»c_p»cO‹HBDE$ôşCíPD†Eäg \ò"ò\˜PÕP¸(zK…ÅCÂÚxˆÈE`Ğåq	H¨ê• y„Ò"Ò‹»X€ğ`\ÂÊáÛ=´éœ!	VÕ,ğ{ƒfß…Á%ÌYú¥:ÏŞSÕ_Ã ¦à/qfåZüÌ†Æ"„å¨8üÁ—$ŠÀ;@oà|{'p¾Ğëíoàá›R0pÈù[µmàù›J0ğ,pmbkíC £å å&ÅVíõ–ô W	™Õt:­‘H¤‘à`¸•Ï{¹l6«ªª}}}^Fy	8lÅÑl‘Ç€Qmÿ÷Ù }À+»&v¢V€ÓnD„©©)÷‡ æææ(
+¬¯¯333ÃÚÚš›‹“"ò²VÂ¨)…rğ.aÇu{{[ëall¬QhŸ°àj5ÂİnWWWI&“ô÷÷ÎÈÆãq¦§§YYY!ŸÏ“N§õñ4ğmÓLFø>–›¥¥%UUM$~–¨/ZiÒºÍOã­­- Êår`}¸Á*¤c~§R)X^^¬W…ô3Øì¬êÙG­Òçp6ıAbŞÂ‰‰`U]¾¶ğå‚"°`áÈ²âqç¥!¼©ª&,ò¢&—§±Ïİs@ÄŒ£¥àŠè³@ihhHs¹œnnnú²œœ¬Šı
+8dÉÏr/]E
+8ÚÙÙùd<§££Ã×U•h4
+°œRU×ön`~Ô""/oD£Ñ*yÏ(—ËÿmL€yU}Ê” q8ß3£ZæğiKÖuéQìLNZ:3ÍáñññÑ‘‘"»ÿ1“É<$"¢V¹gÎ±………-5F±XÔîîî¬xZplbb"–L&½–n<!“ÉP(Xù3¥E$S¹´Æ1U½dáÈzÒúÜØÀ%ÀîdÑ*7*‘^ N}Ë‡•0ŞirÇCDãÔ¡†qÂÜKb¯€Ï€OUÕW…À·İ
+gfêàT#jí@åû;*Ÿ½8‡kG\Ümàè²ÀŸËWq.¼ÔÚUà²ª–vÅÛ«`9<ÜÜ$ğvw#ìà\¡X~ŞUÕEO¿ô—‡€O¾„ÓŒ•€W©`]=Ävß´€ ¯–âÍ~¿DøµóÍì´
+ûÅoÀÀ÷8K×}ÀqàvûúB½½wÃIKDNoàÌ¼€_€Ë5–ÃYr¢@GÅgb©Ú6SÕ¿\úèÂ9%¬õQıj}ì +m«v¸8¼¼¦ª×\õ±ï¼¾Qµ`¯Ø¿ßîØÜî¸åÿ)¿²[U¥    IEND®B`‚
+
+===== assets/piece_icons/black_king.png =====
+‰PNG
+
+   IHDR   <   <   :üÙr   sBIT|dˆ   	pHYs  ×  ×B(›x   tEXtSoftware www.inkscape.org›î<  	2IDAThíZkLS[]›"Dô¢mi•Ä\E%¾hÆqÂñDÑ+$3Œà#£7:×Qƒ1š™‘“	ÆèU4 >É€Q‚Ñ‰ø@¯E(‘ U4VĞm‘Ö®ùÑ‡ˆ<JåÆë—|ééé·÷·V×ŞßÙgŸ#Hâ—dƒÀİö…ğçn_î6(„…R!Äï#÷`)¼Ài!Älw',Â¾ÖO?w'îZx!şà[ë×É°½à%€÷ 2H–4ÏNĞÁR„u:7¹Ãñï 8aw*<
+ÿÀ, [ ü ÀuºŒÛ&Ù  „/­§kH^ràËuxàMá@fıàîü é6à vğŸ ¸ƒÉ.ĞŞ‰¬Íë(İÃ-UZ!P@ŞCX>ÉäÆâ®9œÉ@’"r ¸DXñ•"DáÕK¨£7
+İÆYs…:«gsb.~ À fXæà{  J,àÓ!~º·]yq‡vÁ ş	 
+–å§-ÆË’ô8€ßØBÈòğğønÁ‚ˆŒŒ„L&ƒ\.Ç«W¯PQQë×¯ãöíÛ0™L¯äYk`)VÒ`3€o…&L@tt4¢££1jÔ(hµZèt:Ü½{Ç‡Á`8à’5qPÕ !DÓÒ¥KYWWÇ¬¹¹™™™™T( ğ€çpLa “··7W­ZÅÇ÷˜ëÅ‹Ü¾};år¹Àü~QØºP(İ½{÷oV¯^ xøğ!rrr Ñh Õj¡P(ÈÈH„‡‡ ÚÛÛqôèQlÚ´	MMMÏ ({ûó…Xµj6oŞ¥ÒŞĞĞ€«W¯¢¢¢jµr¹ˆGTT @­VcÎœ9†'OÌ!Yé’Â ~HKK#I¶µµ1%%…‰¤[•"""˜ŸŸO£ÑH’Ôh4Œ‰‰éU]™LÆ’’»zLHH ¢Û6ÑÑÑ¬ªª"IŞ¿Ÿ
+…¢	ÀØùôBÖwÒ¤ImïŞ½#I¦¤¤8Z|ÂË—/“$ß¿ÏíÛ·w~ÆŒ|ôè‘}˜ÆÅÅ9œG*•òÖ­[$ÉÊÊJ(p…ğÂ-[¶$>ì0›K$nİº•&“‰$™••õILhh(_¾|I’,//gPPPŸó°©©‰$ÖÀÓYÂ9/^$IÎŸ?¿Ï@lCƒÁ@’Ü¸q£ıüÈ‘#Y[[K’<wî‡ât‚‚’djj*Ìv–pm[[IR.—; ãããíJ'''SÁsçÎ‘$oİºE___—ú_·nIòÇ$€ï»ãÔÛJëÍ›7oz	qÌN:[•ÏÊÊÂŠ+0wî\h4Ì›7---.õ/“Yî8µZ-`¹vm½(|úÆ$ÉéÓ§»¤€ÍU*•½u‚.û™3gH’‰‰‰áìşÛÁƒ»-8Îø¬Y³h³ÚÚÚ/qú„	h4i2™8fÌ=€aÎ
+7™Íf*•Ê~!]VVF’LKKë—şN<I’Ü·odöÈ©§­¤ÿ}âÄ	’¤J¥¢···Ë I’.t¹/Ûe³¥¥…­ ä®ğ÷÷şğáC’ä™3g(•J]i»„,^¼Ø¥~ÒÓÓíõÀ:wÿØ+ŸŞ¬¤njll$I>xğ€S§Nu˜D"¡R©äÌ™3Ç¼¼<êt:&%%qÜ¸q:thŸˆúøø077×^V¯^M ÿpˆ‹#AVÒ±cÆŒi)//'Iêõz®_¿ş£!îííÍ˜˜îØ±ƒ%%%¬®®¦F£±Wä¬¹¹™÷îİcii)8À¤¤$úùù}B6,,Œ555$ÉÖÖV&''À> ıJØJz’···zÏ=v 555LHHàéÓ§ùöíÛ.É´µµQ­VS¥R±¨¨ˆ{÷îå±cÇxáÂÖÖÖòÕ«W]¶3›Í¬ªªâ†ÄmÛ¶ÙsÜ¾}›'Nl°¼Oúl%í ,66–?¦íÆ‚´Ì¥k×®qÛ¶mŒåäÉ“)“É¦¡¡¡œ={6ÓÓÓY\\ÌÖÖÖú¶Yvv6}||ˆê3ş¾6°’‹-Êµ¨¯¯çš5k\^~vv///ÆÅÅ±´´ÔNöÈ‘#`”3ØŞ¦õóóûCJJÊáúúz”””Àl6ôûğáÃ¡T*¡P( P(ìÇJ¥xıú544={öÑ±V«Eg\S¦LÁ¼yópöìÙÿŞ¼yó§@Î)l³ÔJ¥LLLdvv6Õj5]±––:uŠééé?~|gå;‹Ù%……K äÏ˜1k×®Å’%KàåõaU¯×¢œí¸±±#FŒ°«ßyÈåoa———c×®](**‚Éd* ¹Ä)Ğ€ó
+ÿéüùóvUŒF#/^¼È7rúôé=nÍôæ£Gfjj*
+
+ØÜÜlÏÑĞĞÀœwEa§¦¥¥m0›ÍÔjµÌÌÌtx§BA¹\N///‡â‡ÊåË—óÎ;$Éıû÷ß´!œßØØƒÁ`?/‘Hğğğ.‹V`` <==AZ­¶Ë¢¥V«qåÊ•Oî‘ÇFó½^¿Ø)Ğ@ÿ-¦¦¦²°°:®ëJd5³ÙLNgßÕìÎŒF#¯\¹ÂŒŒ†„„ü<ŠÖØ±cóÓÓÓ±lÙ2H¥RûouuuP©Txúôé'Eëùóçhoo‡şşş]­©S§"**
+–72Ìf3Š‹‹‘••…²²²Á)Z‹-Z«×ëíŠ\ºt‰+W®dppp¿,:|}}™ÀC‡Ù7 IrçÎÕ®(ìtÃ¼¼¼¯«««ßåæærÚ´iıºÂêìşşşÌÈÈ`ee¥9''çïƒBØ:†ø>~º7npÀxWğºL¸ñ¯ |Ëûïû‘¨À¿ |İ8éJÑêÎ¬UãLğ+ AÖÏ=4{à),Ï˜`yçã4Éÿõ+8¸÷M<_| ¯Ğà	,›è& n#üs±/oâ}îö…ğçn¿8ÂÿÙ§Æ¤ÑÊ    IEND®B`‚
+
+===== assets/piece_icons/black_knight.png =====
+‰PNG
+
+   IHDR   <   <   :üÙr   sBIT|dˆ   	pHYs  ×  ×B(›x   tEXtSoftware www.inkscape.org›î<  iIDAThíš_hU‡¿ãnc7iI6 15‘ĞM•b5ÂJ¡4ÍƒXˆ´…mŠTjiñ%¡b)*â‹øPh–@I‹ÒŠè‚ØJcEİZ…”"F|èC„“Jcÿh’®ÍºÇ‡ÉŒÓíìfvwf7ÄüàÂì½÷œ9ßœ33wfGT•ÿ“î¨t åÖğb×ğb×°ß‘z©+÷~My,"O‰È§"òªˆsÌé&‹"ÒîÕ¾’ª–Ü€F è\;,Ïš³Ï6®À—^ì»àX=nÍ‚Q nßí0~¨*7°cé¡›}="ò+0¼é0¾xøÁ£\I¼ZK‹È°®ÓkÀÏÀğPÕO‚r’gçp{Ùæk›ÛİİİzäÈíêêÒp8|è\Èçp-ø‚¹}şüy5•N§5™Lê¦M›8¬_ˆÀÏ«ÀŸæöæÍ›õøñãšJ¥Ô®D"¡‘Hdx¹Ó¯âÀÀ Uğm­¾¾^8 W¯^µ S©”Æb1>î®(0Pünº§§Gãñ¸ŠHÑàzìØ±[Ê|Ï=
+L k*	Üg)"Ú××gÙÒÒRrÆwìØ¡³³³ªªšÉdtÿşıŠqE_Qv``-0k·}ûvvjjJ€¨Œèt:mùîììTà£J Ÿ²Ç­ †††JÎ®½íÜ¹Óò=66¦µµµ
+¼X6`à‰ì NŸ>­ªª###ÚÔÔä)0 Gµ cí¾Áw`Œ{î/ÙmÙ²EûûûÍ£ïy‡ÃzéÒ¥ìÒ>Uàì§²5ûubxxØìÈ7`ŒÛĞ•4™LZĞÑhT÷ü>XIX@c±˜<00 OjÍwS•ƒ:>>®ªªÓÓÓZWW§@¯[B^ñ¼Ô0ß¥Ói¨®®f×®] 1×\f·˜¡ÂÙ5[ss³µ9sæŒÙñ¬¤±-!=lŸ—bîÜ9UU™™Ñªª*õ¤¤E¤Ø;ß¼õğ~)†‡‡…BD£Q€ÇÜØ¹9‡ŸªÍ+W®$
+¢¥ÃÀãkñ¢e´··ƒK`7åü	se´mÛ6Íd2zåÊ•b†RÀ^›ßÏ
+´¿¥­^½Úº=8qÂì_WRI‹È
+ ÓüİÖÖ†ˆ‡iiiqu@çôĞ¡ªƒ¶¾G
+q­ÑÑQ._¾ÀÆ€yçÉn-¶£ÚÚÚª‰DB:¤¡PÈm6¾²ünui›·<yÒÊr$Qà­’¯ÒÀÅ‚ê‚>¿÷¸··×îèèPàC/?¹˜“­Y`·ª>§ªiû€ˆl-Âçm2K`ÕªU ÷ÍgãøÇã¸tªê»Ù"Ò ôè/§&''­m/c\tÜè ¦ª_eˆÈÀÇn‚r+‡ß#"UùlæVÕ1Œ{Ü¸‹^QÕ/²;Å¸„`¼ÒõLvàÆÆF šòÙ¸ú3MU/ˆÈı@ˆÌuw]¶i¯«ê9\¼<íf_…È!Ã`TĞh.×ÿªê4Æ_gDäŒW=UÀ·ª:äd'"1Ş’x®À÷æ5r³à.¶/ãÍƒ†cë¶411aöïÍ“oßxˆÈ>Œ7$¾)XÛsæ©Z_€E¤xÛßv-`à5}[
+ÙÊ,"ë1)}W/ËgãGñÁ§£ì®dI?àƒOG-”sx>Uñ‹Èr ÙKŸùTq` €ñuNYTSóßkò7n˜›×òÙxö–åPd-e<³ôTÕL®	/t-}/½Øµ¼Øµ¼Øõ/ê`ÃÛ+w    IEND®B`‚
+
+===== assets/piece_icons/black_pawn.png =====
+‰PNG
+
+   IHDR   <   <   :üÙr   sBIT|dˆ   	pHYs  ×  ×B(›x   tEXtSoftware www.inkscape.org›î<  šIDAThíš=kA†Ÿ7&(`PÔ BÑ ¢‚(ş€…`)ZXhŠø‚ö¶Z‰A,ÅÆ¯B‘ˆ•…‚ "øEâ±¸¹A¢$;;çÌ½¹÷¾pº9ïœ‡³;;;»23ºI}­. ´zÀ®p§«Üéê:àşVL*i'0ì ^/Íìk‘ÉÍ¬X #ÀÀÅ,pX]ƒJm-%îƒK›™Ù÷¨:ŠÜÃ’,0
+\¬¥Ô¢5	ìª8öœ¤}Q…”><¾²J§vlÅwøgğøÊ*ü&x|e•¾“0ö7p7ªp`I'©„”>`ZÒ–z"7’ö /Xşùû?=›Ù¬gMa–4 LSà(í¦«Â:,ép3Óæ°İÌ>;”ÄŞÃ<Ö ç|,ipÀÉî„“×áªûæ*Úíè¼ÍÑkX’¼Ì¢€ß:zÍ˜ãÊlfï€ONvÏ|€ØUú©“Ï3' ø‘ƒÇğÄÁgA‘À×ilstÙÌ>x³ àSÊaà#ÿRV‰›5Eî¥×€M5-I:åXRCAİ¼§^gÇ=Ï«#`·:Â6ãó/:m¬^9Ã6ãZ[ÀÃ ØfL´ğT0¬Ñ8ïk90S/€¸S«×cé,°ÑÉk9KªıÊ˜,©¸”ë“ >`¢v¶Ãå|š2—òßñjÕ%=éà‘ªæ..YYÀ’FüğµŒÆë$åvø`f~F%­KMZÉÀ«€ı©I¹À£™ù¹J?x(3?WÉó÷€µ93?WÉó×ÿ:˜¼J:+y;›óëá­{7õ-5¡ØŸxí¢®û›¶Üéêwººøşø˜ÈC¬    IEND®B`‚
+
+===== assets/piece_icons/black_queen.png =====
+‰PNG
+
+   IHDR   <   <   :üÙr   sBIT|dˆ   	pHYs  ×  ×B(›x   tEXtSoftware www.inkscape.org›î<  XIDAThí›klTÇÇ‡Ú&¬!Û»kó¨Bm§åQˆØõ\hÕ•	Q•Ú†P‘¶jÃ'ø€Á‡~ ‚ªqú¡²TÑYZAdì†˜7¦B¥¡¬½!àawO?Üİe÷zîİ1ğ—®îìÌÿ9gÎœ™¹3wEUy’0éQ+0Ñxjğã§?î(›ÈÊDd*°Xôï©jxBu(uZ‘/ KÙÀ%U=çÀ{8Ôgd+ğ¦ª¾ãğÌóÀ+À3@·ªş·$eTµè˜ô$O]€ÇÀı—ºF:ÿ›@ÔÆ{½}UµdƒÃF¼màwà*ğ=w6pÇÀK Í¥è\ô %"ÓCñyc.âìeß¦šªÖçTÎ‹Hƒˆ¼*"+EdŠâs‘û¼á™¿8p“È6–å¡¯C×`V÷Iu¥€¯ØxÀ]Ì]ôCƒÜ
+ào6Ş§À7ÜurøU1ú:Æ0ğc‡Š>¦Ø¸¯x÷€KÜäÁ ôE 7È¾T«¯“Á'\Zw¥ÃhÚÁY—c ûc·É…W\Èè	û€çJÕ×ÃÅª~‘õU—çÁZt˜ÒvTs’énU}SUoç£“[™ÉàS+ğ¡CYEFzƒˆWp"R|)#ËÍàõÀdƒ|;
+Ó×ĞE^n1¾{ìsé~_³q¿åÀûº×í"ót¯Ë…÷"æÁÓ¨ï8«ê5`ğ s)wÅ¥•Ëm¿_sàÙ=º@DìÏ""€….ò31 |’L¼üø™‘c€y‰ì)ÄiTıÙ­{ğxf¼'xïØ8g]tÜ—Ákw³ÇiĞÊÄ¬%À4à·<{Œ•<SÌfå‰ÈdÆ¯¦Œ1,"¯ ?ÍÈrcÒp5X­&<“‘µZDLËFS—ÛhSnPgàÙáÛ@U.ùÉ†9H¶½ùYÈg-mò¶ˆømy&|YD–eüv‘íù¦ø7Éß	4eü¶;Çˆb®ä¡d+ïdğÜÔÚWDfbøvdÉ‘…ÀvçŸªú©CiäcğiCŞ:Y—ñÛimO2ídpFä:è”–ŸœãÇøİšœñ‹ƒp;ú°æ9;ˆH*Öœ<ü,ğıdz±KKDD°Å}2åÿkÚ´#güB«j8k(òcM	v…ìxMD€\8K€f²Wa™¨ ‘—·8yœï&^/°Â¿ADŞÃ}a^Í!	ÖëÊEdÖ¨<ÙP®˜CÏÀÌ1Q''÷8¿‘üçıªÔ5œ£<ŒäàüÂ¥ìr>v_›C™Ñåãr«ãİ|ÎwOërÒNx&O9¥À­¼FhÈóäAUã˜®ÿä5`AaG-y`äµÂJ¡ƒÿU¸.‚OTõNnš…BÎ–¢Å´iÓğù|x½Ş¬»Ïç£ººšÑÑQúûûéïïg`` ëF‰ÇãùVe<ÚqB!Ÿ†pX@455
+…hii¡¹¹¿ßş~‘?b±§OŸ&‡éêêâî]ÓbpŞï6¢ Ã4yØ0gÎZZZhii!
+Q[[›ÅK{0‰d¥£Ñ('íqŸÏ‡ßïO§«ªª°VšàÔ©SY0::
+V˜-vØÜ3#ßù+cNş}[[›ÚqãÆmoo×Í›7kCCCIs®ÇãÑÖÖVİ½{·<yRïß¿ŸU×•+W´¬¬ì0·Pı‹9şÑØØØâ¾¾¾—Ï;—nõ¾¾¾"D™122Bgg' L:•+V
+……B\»vX,¶^U/,¼ĞJz¹øŸÿêÊéúu1z«jñâ"²nŞ¼yÚ³g•••EÉ(İİİìØ±ãÖ¹‘ÛË†3Šm)UeëÖ­#ã‚ùsD$Q`[):ı‡ˆL‘)gÎœ¡¼ÜííğááÒ¥K`}uP<Šm) G¿ÿ Ê'ÔÃ"Ü´iÓ»+W®¤§§‡'Npşüy‰âÂ*ªªªƒAfÎœ¹tçÎ1eEz·÷øñãYñ544¤GÑíÛ·ë²eË´¼¼¼h/ÖÕÕi[[›8p@/\¸ ‰D"«®U«V}<[ŒîÒÉo;>öù|¬]»–`0H0¤¾¾>‹Çd```Ü•Ziy½^ãeõGFFÒ=éØ±ctwwÌVë¬0áİİ&¯LŸ>İÕ+… ÏŞòÆ„x¸¼¼üÆşıûëâñ8„ÃanİºeâQSSƒ×ëw¯®®fdd„h4J4M{=u¿}{üÒXD˜?>­­­>üqGGÇÌ‚”‡Â=\__ÿA,K{#‹iOOîÚµK›››µ¢¢â¡È³fÍÒ7j{{»F"‘¬^pèĞ¡Á‰ŠáÀ¢E‹şºfÍšÊÖÖV–/_NEÅƒméááaººº¸zõ*7oŞ$‰‰D²ÒÃÃÃLš4‰ššjkkñûıøıştº¶¶–¥K—ÒØØ˜U÷õë×Ókì£Gn2~²øP=œl &¬}à1Ç£«W¯Ö½{÷êÙ³góŠİááaÍì%NÒİ²e‹666*Övî ğV1zåa;Dä%¬/òZ×ë­	Ì˜1#í¹Ôûn*íñxH$¦ß•SŞO¥/^¼Hooo<Ÿ:±>sìRÕá’ô-Õàq­ãĞ€õ×v¯ğx<Ü»wx<®X»(XŸ§î7€÷UÕq«£(ı¶Á9+y¨ÆÚXPÕØ„Ö?Ñ?j<qxjğã'Îàÿ‚m·÷Ò#÷Ñ    IEND®B`‚
+
+===== assets/piece_icons/black_rook.png =====
+‰PNG
+
+   IHDR   <   <   :üÙr   sBIT|dˆ   	pHYs  ×  ×B(›x   tEXtSoftware www.inkscape.org›î<  RIDAThíš±‹AÆ¿oñÎ›H4`¡+MHÚÆÖ?Á#Dì’ÆÚÂ ä;A°²²Ğr!…E*­lR$›"¨•a7î³ğÄ3†Û™ÍÆ›¼bÃ›·ïÛ™y3;YŠŠ„·ëòÆ	¶'Øvœ`Ûq‚mG[0ÉÉ÷$eƒ‘¤‚¿üDòÊ†û’ŒÓú'""Z @Î°«Šşàş†û*şIvAù	¥ç.Éo§®R´i’¼·ö[)Ãœ¶ÚÃy˜r»¢e;ç]0“]şÆDğ%ß÷µk€©Íçsxw]5iêxÜoµZŸkµÚ­ †,‹¯£Ñè¦ˆ|Qjhò”ìxü«ó; —urÖîáÓ| ài¿ß÷šÍ¦q¼ML§St:ˆÈ À#ù¡'“‡ˆ<#¹EÑ“år™EÈÃ"òJDÊªˆ ŸˆòFÃm<v@Ş8Á¶ãÛl;N°í8Á¶ãÛN–ñêõz†!ÿ|ß/Êğ}øµïû²-f³™ühœgFbo‘ÏyÖ“\‡4ÉR¥Ry3öÊeówq£×ë½$y[Dubd1‡ß®V«ƒ0±­ó¬ßDQ„0+ >¬‹ÈwÕÆ§–$ U£ z\‘@µQá–¥Â	6ÃÕjÕk·ÛXûÂa«ŒÇcL&½ÆKĞ!€'ËD·Û5_d‡ëKÕNêQ’)­©$R±ÂÍa'Øvt?Æ¯Bñ?ñÀ<c&ÿŸ'Ü¶'Øvœ`Û)œàŸÛÎÁšÖ›2    IEND®B`‚
+
+===== assets/piece_icons/white_bishop.png =====
+‰PNG
+
+   IHDR   <   <   :üÙr   sBIT|dˆ   	pHYs  ×  ×B(›x   tEXtSoftware www.inkscape.org›î<  IDAThíškhTéÇï\Í$6Éx/‰ãxÛPÒ‚5*¥1Hƒ [—°S¬]j¨ ~¡t·Zioë%ŠĞBéúÙÙ*”H«,m¤5¶4·	“˜‘$mn3óôÃ9g:6·‰sfŒYÿğpf˜÷<çùÍû¾Ïûœ÷%"|dyÓd[ï€»Ş/vÙŞÄE•R6à[Àào"2–­kg½‡•R !à¯À—À€RêhÖ‘¬ğC È¦M›¤´´T Ã~•²kz9yò¤Äãq¹yó¦(¥<‹	ø=@V¯^€5TYYiôò‡™#›sØàt:QJ½òƒÕjM|ÌxYìa+ğ+W®$z÷îİ»b±XˆkÍÖ¡Š¤ÊËËe÷îİ¬ ç²C–¿4¢gê$ûP¼h€| 4 KJJdÇÉĞcÀo€¢·ø&Ğf€íÚµKšššÄPKK‹øışä¡=T½•ÀÀû@²²2yøğ¡Ì¤ÖÖVÙ»w¯¿UÀÀÇzæ•ÈèèèŒ°†âñ¸œ>}Ú(Dø=`]ğÀÀQJÉÙ³gçıİ¾}[\.—‘Øj40°ÎHN7nÜ˜êÈ‘#RUU5¥ê2ôàÁ±Z­Æğşî‚F«¦îâ÷ûg„Yµj• Ò××7c›S§NC»È[ˆÀ²fÍyşüù¬ÀG yöìÙŒm&''¥¬¬Ì€şÌŒÍŞ ø	À™3gp»İ¯üF¹pámmm püøqrrr(((àÜ¹s¸\®Ä96›ë×¯S^^ğ‘RêcÑÿÙ×–‰½»˜t82888¥·:::’³ï´vçÎi{Úëõm¾¿zx`«ªª¢  `Ê>Ÿ@ @ww7 õl$áÚµkäççãñxØ³gÏ´ı~?—/_¨şœV”&öğ§€ÔÖÖÎ8'“•Ê6tëÖ-£‡ÒÓÌûa€ÃáH­±Ş.é^xÎ¶Æ5Ò‘™CÚ©_¼x‘`0ÈŠ+æl›äÓşºÁ28ĞÒÒ’Rãıû÷§ì8Égx¾AM‘‰sø=@òóóell,¥yœª¶nİjÌá}iÇi°ı@®^½jl 0`G€%ØˆÍf“@ 6l{{»,[¶Ì >eJŒfëĞŸ’““#'Nœp8<oĞ/^ÈùóçÅív°€2#>¥iš”Ràs Fûª°ÛíS¶fgÓÄÄIq€j1%>³”Rvà@eš®şì‘Áô£Ò”©ø_•yyy4662:::/{ôèëÖ­ØüÎÔÈ20‡KI¥”Ü¿Şó×Pgg§,]ºÔ´å(_€?äğáÃ¯k¨®®Î´Ú°L< ­­ššš´E"ããÒé25i)¥
+Ğe"7l‘ÔêÖYdv» Kaa!uuu¦8¼té­­­ î¹Ú¦"³û€‰ááa‡Ïç£¢¢"-gO<a``ÀøÚnp@F’V#útuuµ444ÈÀÀ@Ê‰*‰È½{÷äĞ¡Cb·Û¤õwLÚÏD¥å ~©[âşÕår±víZŠŠŠG«ÕJOO===„B!zzz’:ìçhï›ŸÙÀ	ÇJ¢íC}ÈMñÔqà)ÚHi‘šWºÀJ©|´KàL::°J·õÀ÷€Õ ‹‹ÅB45\Ğ4ö%Ù€	İÆõã°ˆ$&÷¼4ÏùYüøh!éyoª¶|ùr9xğ <}úTB¡;vLŠ‹‹çåC·ÀàZ±³Æ´9¬”Zümˆ¾¢ÂÂBÜn7v»§Ó‰ÃáÀét’››ËÊ•+ñx<	+))aÛ¶mX,S—éÖÖV?~L?ııı„Ãaúûû‰D"Œ311‘8ŒŒOÙí™ >‘Y×Ã9õbâOÀ·óòò¨©©¡¢¢‚7âóù¦İƒM¡Pˆææfš››gûöíìÜ¹“Í›7ÏËÏË—/éìì¤££ƒúúzêëëQøàg2Ãíd*À·€ÓÔÔD$¡½½`0HWWÁ`¡¡!¬VkÂl6myÅbÄb1¢Ñ(±XŒ`0Hooï´×q»İlÙ²›Í6§ŸÜÜ\¼^/^¯—õë×³aÃººº8zô(CCC _‰È×şØ§”B)E<Ÿµ}
+
+€¯Ğ’ĞvİÖ¥ëØb±ñ=F+E§À¥ì >A{¢¯Ğ–ŒAİºÑêgk’\L·¨~ì‘à×ñ >ıÜéü>bhoyÑş$/Ú}s)ƒöÖÀ/fZ·S^–”RN &"Ñ9¿)mi‰ˆŒÎÚ.S…ÇBÕ×îøwÀ‹]ï€»ş°¦¡|ô÷“ñ    IEND®B`‚
+
+===== assets/piece_icons/white_king.png =====
+‰PNG
+
+   IHDR   <   <   :üÙr   sBIT|dˆ   	pHYs  ×  ×B(›x   tEXtSoftware www.inkscape.org›î<  dIDAThíšmlS×Ç×NB“å$mL ·aQED#šP¾ğÒJK´"²O€Ä@P4EŒIC£›´	Ä(ËÔQUÆR©2*’R$¨Ê‹˜(qBˆ›&¼-/öì›ÚILŒí8å‘îMîsÎùÿîsüÜsî=†$~Hfoñ¶çÀÏº=~Öm\€ŸıÒ0ŒÂx÷=^^üø}¼;/à$ÿ1-Şñšx†±¨RğOú€.¿K½¤Uc­#a¬;°É@şÿ%¹şóWâ!"n0#ßM^ü8¬ö_¾'É3Öâa$u†aã^IíñÔğü9<Öf†xÍÿga/ÆU€¤¸àÇÀM@Ål›†8ÂNîÊÏÏ×Ö­[µ|ùrY,|Ç³|ĞÂ…uÿş}™V]]mB÷…Ï00PjjªîÜ¹£¡¶aÃ3ÊÇ¿·À€o"±˜ä>Á÷7€¶lÙ2V’šššLà»!ê'Ó`>7`à§À¿!ÉGÀC XXêôÉ'ŸŒ,I999f6<`'Ğ<B?Z€¿/	0Tú³ª åææjÑ¢Eš={¶²³³‡
+j¶Và ªªªÀÉÉÉf½×€@¿ÙVbb¢
+
+
+´dÉ½ñÆJII	ìç1ğ' -fÀ~ÑçÌÎ·mÛ¦öööa¢ïŞ½«={öèÕW_Ô üĞ¶mÛF„½wïéû? PBB‚ÊÊÊtöìYy< ¯×+‡Ã¡òòr†aÖ½ü(VÀ; Ùl6]»v-d”íÌ™3ÊËË3Å<4}úô}=4:V­Z¥ÖÖÖ°ú¹pá‚
+
+
+ÌºgJ³~Ã0T[[–ÓÜn·ÊÊÊ‚`Ç0¿üü|JNN~â°e7oŞÌ{£®´yóæ§bÚ®]»ËËËG¼–’’¢K—.EÜGCCƒ&L˜`öórHPäƒ`fc§Ó±IÚ±c‡ Y,}öÙg’¤O?ıtp¦U]]Uû’ôÎ;ï˜Àë!ğR@3fÌˆZŒ$½ÿşûƒÙışıû*** íÛ·Ç¤ıƒ:øW€Ö¯_A^¯WsæÌ 7ß|S€&Mš¤ÇÇ¤ı‹/šÀ—‚i´å¡àÁƒ£¸…g†aPYY‰Åb¡¡¡€ŠŠ
+^xá…˜´çÎÁÓP>£ßp¹\10kÖ,Ö­[@NN6lˆYÛ‡Ã<mé*ôòé^«ÕªÛ·oÇdØIRmm­ •””Ä¬Íşş~M›6ÍÒeŠdHKºT{<öîİ‹ Œ™}üñÇ455\şÒ1ÔĞwQş	àµZ­ª««‹I4bá+W®(==İŒîÏõQßiIºüÁãñğŞ{ïqıúõÄ#vÖÚÚÊŠ+èééßª¬ú‰t7ô]”-À¿ ¥§§«¦¦&ì»ßÛÛ«Û·oëË/¿Ô©S§TYY©µk×
+Pqq±Nœ8¡úúz555=õãéüùóóõz`Â¨,á ë»Y×Qü³¥={öĞÓÓ£Ó§OkãÆš9s¦rrrW3a•‰'jÆŒZ»v­?®ÎÎÎa«ªª”””dÖûÇSy0ã×ÀËÛo¿Í¾}û¸qãû÷ïçóÏ?§¿¿?È?11›ÍÆ¤I“‚ŠÕj¥­­m°¸\.ÚÛÛéííªo±X˜7o7n¤¬¬ŒGQQQÁáÃ‡M—}@…¤° ÂğhÿèÄ¿n5£cµZ5ş|}ğÁúâ‹/ÔÑÑ!¯×ûTÃÔívëâÅ‹Ú½{·/^¸ PVV–RSS—œåO­=`?t6ş·S¦LÑîİ»åv»Ÿ
+.{ğà8 ÂÂÂÀ¡_G„o8£ú˜fFÖÙÙIvvvĞ¨ill¤µµ—Ë4lÍ£×ëâyyyƒÇ¼¼<
+±Z­Am¦¥¥ñğáC€‰’¾Ht¤öß¨ouuu©££C}ô‘V¯^¸¸ddd¨´´TPKK‹$)##Ã¼©æh#ü-±fÍN<”pìv;ƒ‘'i™çÍÍÍÜºuk°­„„JKK©­­52ãá^ÿ—ÅbÑÒ¥Kõá‡ª±±1ÚŸ®œN§:¤wß}7(qe„£î´iÓ&577‡âv»uõêU]¾|9ì,ŞŞŞ®;w>Ó³"Õ“!İÕÕEff& œ?†††aI«­­mØs611‘ÜÜÜaIkîÜ¹,X° h­œ™™Iww7ŒwÒjkkÓáÃ‡µråJ¥¥¥…LD‹E6›MÅÅÅš5k–&OôZ’““URR¢ıû÷«»»û{‘´ºô¬¬,¾ùæó¼şúë¼õÖ[Ã’ÖK/½ô¨ğz½tvvKZuuu\¸pÇ·í#55•¾¾>úúú`#Ü‡?EEE:räÈˆ_$"µ®®.;vlğıW@ITs´[Nûàp88wî_}õ•…¨ÌëõråÊêëëùúë¯/“Ôi»Qo[2cğ[àøw¥§§³lÙ2ŠŠŠ°ÛíØív¦NÊ”)SHJJ
+ª?00€ËåÂétÒÒÒ‚Óé¤±±‘šš:::L7ÿ~'éZTz£lÈ¾(ŠCø`³Ù°ÛíX­VZZZp¹\ƒ¿ÓÌœş-è †X5j¯ ‹€—ñíí°ûËT`è;Ù>|ßz[ gÀñœ¤ÿÆ\ÛX ?±Cß6¥©ø>Á¶àûê7qo{¾ïY·çÀÏºıà€ÿ†$¹=eŞî    IEND®B`‚
+
+===== assets/piece_icons/white_knight.png =====
+‰PNG
+
+   IHDR   <   <   :üÙr   sBIT|dˆ   	pHYs  ×  ×B(›x   tEXtSoftware www.inkscape.org›î<  ÓIDAThíšmLTÙÇ‡œR­ÙØ¼¶–,« ì
+ÖjCªIM$D©’Zµ‰FM×¨ØØ7,~@­~ªÔ‰7£Ë&ÖÄŠiœ5ƒ‘kÛÄø¶ ±è\¨
+Ü?À™†;Ì¸”2É™9ÏyçwÏ½çí‘Äÿ“&:ñÖğd×ğd×p¼eŒùÀóƒñk3`cL‰1¦ÅÓ`Œ™7‚Ív ø‹1æ`¬bG$I1ù _ ø¼ ŞRÿóz_¾XÅwg» ­ZµÊ= ¦ÔYĞªª*åääX›Å_eàV@~¿?èÏÀAàs@G‘$Úú? óÄ¯"ğ1@{öìÑİ»wåóùBo_egg«¯¯O’´cÇAuÀk 	øğıx{c8<hkkcşüù444påÊ$áóùØ°a		ıcdyy9ÉÉÉMMMï455ñèÑ£i’r€`³1æŸÀZI1Ì16=úG_={V.õÜ:;;uóæMUTT(###´ç»€
+ÀûVİÒÀO¥¤¤èåË—n‡Uoo¯.^¼¨+VÈcÁıÀ·ß
+`àƒĞ™3g¢‚ªúúz¥¥¥…NuE
+$<»Úºu«$©²²RÙÙÙzüø±¦¾ÑÚÛÛµråÊĞÛ|ÛDÿP~~¾zzz´}ûö`b—.]rÜëÆÈq:tÈú~,w` øÒ£@  @ 0hªinnvÃ‘víÚeı?ÒÆ¸Pii©$©ººzĞœõôô¨  ÀÆù˜6.À@à$%%9---’¤}ûö	Ğ¼yóôôéÓ¸ KR[[[èÔU1^À~@åååÁDZ[[U]]­ˆ vïŞ­mÛ¶EÔæÆøàq~(==]]]]%:T}}}òz½òx<r'¢¶Ë–-³Ğ»â|hT[[¬$İ»wO€RSS#n[WWg[ˆ`ó)ğ‡€.\q§ÒÒRÚ²eKÄmÇÑÜ¹s-ôO\3¸6„¯ÿTWW%ªtâÄ	2Æ¸]¤üN<i›\s¸6„2»ÈˆVõõõJLL ¤¤¤1ûyóæfÍše¡¿åŠÃ•Ì Ú]½zuÌ	JÒıû÷C“”Çã‰ÊßêÕ«­¯®X\Á/-]º4ªä€ÒÓÓm‚Ÿ }^¯7x00;vÌú«uÅ2ªAÿ^÷	 k×®9±ãÇ‡‚\¾g*ÑÈô@Ëh,r	¼PFF†ÇQcc£nİºå:¡W¯^ióæÍ¡ëìß`# õë×G,IÉÉÉÖwV,€«íÜ¹S~¿?¸)?wîÜ¨‰477kÑ¢E¡Ç²kCü~èğáÃQ—””Ø[Gãqsÿ#€ââb^¼xa“¥½½=l£ë×¯“››ËíÛ·¡ÿÈö»’>1y ''ÇE
+áUPP`‹KF5vÑÃÿtçÎõööêèÑ£ª¬¬Tww÷ˆW¼ªªJÇ^õOw†ø\hÆŒ¯½‡S}}½õ×Qy\ èÔ©Sƒ‚<ş\555jllşæ8NèÕ~˜a|~hïŞ½QÃJÒÃ‡mÌ'± şçÍ¡*** ŸÏ§ÎÎN9£uëÖÙÀ¯€’üåš>}ºÚÚÚbüúõk;¶ô 	ÑÿĞÌ™3å÷ûƒA233ƒ#ïƒtàÀû½X6‚¯o•••ÅÖ*%%ÅÆÏˆØ gy½^Í™3G,ÂæççëÂ…JHH°·qá~€rss£ŞZU^^ÍiITÀÉz€“@ƒÎ®233ƒëbà·a.Ú	¶‚ö”$–*..¶9§¾1‡$|X”¹ •aÚ}dŸÛ@ sXiĞ_Y8†ˆŞ-Iúğ¯·1€Lào’î×Æs øĞçóqùòeòòò"	éZiii¶˜Î.ª—i’>£ÿôpXc~üÚëõrşüy–/_M¸°òù|¶8-œ]ÜşãaŒÙLHHàôéÓÆ+ ^o°ïÂvb\€1©ÀQc555¬]»6aÉãñØâøÓÿ
+&©¤¤„M›6Å)Ä`MXcŞ~æñxØ¿¬İ¨‰¼¥W‰kÖ¬!+++î‡×Dg,^¼8®GVÈ3œÎ.ÀïÌ=;®G–ÛåŸZ¬ŞØ¸q#Ó¦…cªîîn[wàÏwŸ={×®ô÷p•f`­3c<@ı†ñV¤Öp1~Û5õéÉ®)àÉ®)àÉ®ÿ°E©p5    IEND®B`‚
+
+===== assets/piece_icons/white_pawn.png =====
+‰PNG
+
+   IHDR   <   <   :üÙr   sBIT|dˆ   	pHYs  ×  ×B(›x   tEXtSoftware www.inkscape.org›î<  ‹IDAThíšËKcg‡Ÿ/¦	ã8£¢RğÂ€’
+#F;(Rw)´Ò?`Š]T-´bûWWİ”î¡H»ÔÍà"TmĞ
+ƒ ƒ¯QckŠH´¢¾]èWbIƒ'çb¼<8!ßå÷äıòqÎÉQ"Â]Âuİœæ^ø¶s/|Û¹¾íÜ9a÷uLª”
+a X~‘mG&Ç^@1ğ# ^?¥vgPNZ*¥ª€(ğ®Çã¡­­P(D,cff†ÃÃC€] ]DVlâ`u_ ÒÒÒ"KKK’N<—ÎÎN]é(P`[‡d?$ÈÖÖ–d"™LJee¥–şÌ®,NíÒ TTTdlPRRÂĞĞĞ¥övà”ğ€p8œµQÚçOì
+â”p
+àää$k£ÓÓS}xdW§„_LLLdm‰DôaÌ¶$mZïâñx$gÜ´vwwÅï÷ëMëÃ»i)¥Ï<ñx<c»·oßâvÿ{â÷ƒRÊß±Í•-^
+…$‹e¬®fccCÂá°®ò&Pfy&›…¤©©I²Êj¤££CKOÜaÎ/¤¨¨HÖÖÖ®$«I$RZZª¥;¬ÌeçoøK€ŞŞ^jkkuƒô÷÷ë·_YšÊÆ
+¯2??o¨ºšÍÍM]á=+sÙrµ¤”rG.—« •Jáõzs'L&"’´"›]Kº(())ÉYÎ…/¨²"`ë’şœ–ôŞŞ(¥8
+­Êeç¦50==Sçh4ª¿¸—"rhU(;…£ “““9uššÒ‡¿Y”ç—t; ^¯Wfgg-çX,&ÅÅÅz—şÈÒ\v	_HHuuµììì\Iv_´ì/–g²YØD éìì”ããã¬²gggÒÓÓ£e¢#Ìùşğğ' n·[ÆÆÆ²
+G£Qñz½Zø/àkÀ÷ÂÀC`ö"¸tuuÉââbVYÍêêªtww§ß¯^ *òVğ¿RUU%£££Wı/ãããRWW§¥_ş¼0ª7ª7oŞä$«I$R__¯¥_ ïä›ğw€<xğ@LÉjVWW¥¬¬LK?Ïa ‡‹ûV‘HÄYÍÜÜœø|>-ıy¾Ï2<<l©¬fddD¿\×*|ÀÅ_)W½•c”““©©©ÑÒçšÕªséoàü¯ŸÏgÑ—)((`ppğÒ|9aAu³ÂÂBI$¶TWspp @@WùéuUxPÏ=#Z0ÜÿãóùèëëÓo¿Íi*¼Èòò²­ÕÕloo‹ËåàoÀk8¯IÙ:@*++‘Õ466êeİf4³Ù%ı µµÕä0ÆH›¯Íh_³Âï477›Æió…Œö5+\
+P^^nrc¤Í÷Èh_³ÂàÒíTGH›Ï°°©ñJ©i ½¶¶¿ßŸó8FI¥R¬¬¬ ¼CËÚì“xÖ××Mcn~#˜ş”óşë"ûC#pìI¼|áÎ=M{/|Û¹¾íÜ9á ç‰ÜÄöSô    IEND®B`‚
+
+===== assets/piece_icons/white_queen.png =====
+‰PNG
+
+   IHDR   <   <   :üÙr   sBIT|dˆ   	pHYs  ×  ×B(›x   tEXtSoftware www.inkscape.org›î<  	ÊIDAThíškl×Çw^¯7ÙàÆjcb[NäÆã>#Ô"(y©n°J¤˜H@j^ ¦M*ªH¥mH¢V*¥‚(é5%&UD¢ˆª"H?l©Š$0Økc²½ö>íµO?ìÌ0Ş}ŒJ8ÒÕÜóŸ{ÏÎcîÌ]%"|•Äv­˜m¹Aøz—„¯w¹&„•R¥Ô­×bîY%¬”*QJ=œ.)¥>TJİ7›6 "3j$oÚıÀÛ@°P°{ ÄétŠÖŸ¾™c
+À1S[EäŠ>¤“0µ¸›Q@>,cccÒÑÑ¡ãÿ–aìïG5Lğ,à¼f„¥€x½^yùå—å¥—^Ç£“¸3»††ÑåØ±c:¶ßbì»©”hà•kIø÷€lÛ¶Í ±uëVİ°ß¦`o‚€tuuÉĞĞ<úè£:ö/cÿÍ›7K(’®®.nº*„pkı³€¬]»Ö ¼råJİ°'-ğ¿Ó=¥”Òq	 Ù;È'Ÿ|bŒ½`ÁıšÅØ›‘0P<´	>î³À}R[[+µµµf/ÜœÁ m@TÃù³ÿ ?ş¸Ëô±‡O1öf#œw5Ö¦;ü KTØ€†}=n¹6§9ÒR¥`{-..¦š–˜z6GšÜiÂş7ö^’ÕY€1àIÀ>{­&)¨šš®Ó1'rxÌ„ ÜY°eÀˆ†=˜SXõ·  jjAX€Ö,¸Îìw²`7špÏ€)¬úgÄ¨¦6›ÍœiÕ4á?eÁÌ÷'Y°¾\„³ØkYı3­¥lÎNMM‰v.\È€7Äf³¬SJİ’ªSJÙ€% 7nÔO/³G)µhÉ5Ÿ&_hÇIÍŞ#À½"òY2G¾Ù€E\¾Ë‡syxõêÕ:v«¦	úúz9zôhÖÂìä¶ÛnËÒ_çr'Ç¢$+aé¨‰ôºl„M+¢Ï,0€´··K(ÒÃ/­p^ ¤”’;wæ"ü¶É¶ı¹øä|=‘)à¤éÔ^¥Ty&üÃ?ÌÜ¹s–*¥šSÔË –-[†Çã¡±±’‹‘Å)¸Ç ÏªU«hhhÈh›Rêû@›é”?¼ß‡ı`äç<à•L@§ÓIGG‡şssŠº’„ÍGÒóxÀ–-[2¤Õˆ?˜ì8‘™‚&¹B@›ç yğÁÅívëáó]«9yò¤	ešŞ¶‘İ»wë¸×Mã´RUU%òæ›oZ†4ğG@V¬X!óæÍÓ1Õ3iMü ñxœ^xA?·O)Ujnll¤µµ’¹Ø®şPV__Oyy2#2xx+À¦M›p8–Æ(¥î~är¹Øµkƒƒƒ AéËÉ$O×R]]-²xñâ´u-&‹ˆ¼ñÆ:æ¸¦ß ÈºuëL8»İn.àV f·Û¥··WD$ÍÃ€‹dM‘;wÊG}¤ë?Î‹K„mhá8<<,>ŸÏlè"+ÂápX¼^¯nÌhü]»v‰YšššŒğS@zè!CoAøW€Üu×]2>>.¯¾úª®-.y…´¹RŸ8q‚––zê)HVØ×”RöÔkÊÊÊX¿~½şs)K—–cmÑü2+¥TğœÍfcÿşı8Nü~£0ç¬Ğ:™|½üg@öíÛ'""¡PÈ¼(ØFŠ‡ED|>Ÿ®¿DJÁÒeÏ=:æ@êêêdrrÒÊÃoòÄOú{î¹G×¯¾b!­ş O?ı´1Ùûï¿¯O²","æ|—ººº4ıñãÇÍkpyñÅ§éM„C€ÔÔÔÈèè¨¡¯¬¬Ôõ®4áûYµjÕ4ƒLo&–„÷îİkèyä‘4½©p‰Óé”ÁÁÁL„wß}×Ğ]¼xÑxüåËÃºî[‹0ç 9r„¡¡¡içãñ8CCC477ãp8H$$	vïŞM0$c³Ùğx<”——séÒ%š››9}ú4###TTTàõz§ÙŞŞÎ<pÙ Ë¶ä^ph¢4ïå*¥H~uğ¾üòK>ıôSü~?|ğçÎ0È]ijjbéÒ¥,Y²„åË—ãóùxæ™g ¹pÙ˜ëz(€0€Rêp{>X§ÓIYYÇ“Ö/))!‰‰D‡Ã„Ãáiıh4ÊÔÔT¾¦í‘ßä,$¤úÛ•RÌŸ?Ÿºº:êëëÓóçÏÇét8tº„ÃaÎ;Gww7gÎœ™vìîîfllL‡Ê{Ğ|“]‹„-€¬\¹R¦¦¦Ò
+ĞlÊ©S§Äår	Éİ‰[¬ìµj…\dÇ³JĞ,£££æZÚ>V¶VP(¥îş	8<H{{»¡K$ôôôˆF£Äãqâñ8±XÌèë¿‰.——ËEii©Ñ7ÿöz½ÔÖÖRYY9-"ÛÚÚxçw Y¿-"¡¼í/”°FúI`OII	kÖ¬!ÒİİM__“““—KÊÊÊ¨­­¥®®.àóù ¹ó-9]íÅPJ½Gr1bˆİn§ººššš<Ï4Ï¥ö‡e˜û¡Pˆ³gÏ200`eÂ}"òï‚/$şez>»ÑòyûöíræÌ™˜˜¸*9‰DÄï÷Kcc£·-Úîb/SÕnkk»*DÍ2::ª“Àb£.ßVès8UJªªªèïï§··×h@€‘‘b±Ñh”h4:­ŸH$(--¥´´·ÛÛíÖŸ;w.555ÓÚœ9sqhÑ5–İ´+Òš‡ÿ‹ÿ«İLóX~*Î§Í¤hı0–s,\¸ĞğÆÂ…)//7<–Ú‡áq³ç£Ñ(‘H„z{{ééé1¢&‰èÓ]$¹(Øğ"=Û LØívéìì”H$r¥R5«ô÷÷Kkk«îå_e{‘„	È†f…¨Y:¤~¯Ûşcš¶!öCHî2Ì¶¸İn½Û ”*¼èz‡€µÜäŠÅb³æY]b±˜ÜqÇº—7j1=˜œœÄï÷›ÉU!²hÑ"ıTE¡cóòàşƒi·`Îœ9TWW­ªªŠÊÊJã9kÕô¥e,³láp˜óçÏèëë£¯¯şş~ÆÇÇõiÇù¼ …†„vƒn&ùÙö,gÁ¦>ÚŠ±½èç°.Ú·®
+ ¨ÒZ5Ém“R‹æÒífÅLGs‹ ƒ@É/-}@Ÿˆ„gdïL	ÿ¿ÉÄ_ïrƒğõ._9Âÿ1ç:ÚÃ^3é    IEND®B`‚
+
+===== assets/piece_icons/white_rook.png =====
+‰PNG
+
+   IHDR   <   <   :üÙr   sBIT|dˆ   	pHYs  ×  ×B(›x   tEXtSoftware www.inkscape.org›î<  "IDAThíš±OQÇ??hÂÙĞÂbhmÇ.&YGdtp*ÿ‚²0°ta#„810hLLØ$4!8ÒmÚ’Ğqhès€3 WÚ{÷ z½OòKš»÷~÷ûŞ{÷îŞïWQJÑItµ;€›&ìwÁ~'ìwÁ~G[°ˆX"ò^D”ƒ-‰ˆ¸h¯Dä‹ˆÜv¸Î´ˆÔ[mß¥”–c€ºÂb.Û+à¥ÃuÊnÚ73ÏS:“É\p800`Ÿz""Om:µWJ‘Ífí>éó}ÎúY ¥RÉ©½kBÚ=ĞßßO¥RxÛèüÇ^œÙzzz°,ËH|Æ¯¯¯3;;K½^¿tÎ²,æçç/Ÿ™™áøø˜ƒƒGŸSSS7Jã‚S©«««®úX–Åââ¢éPñ,¸\.³¶¶f"––ÙÛÛÓïìa•~FóU÷ºmÙmÜ¢›ñ‘0î„ÃaÆÇÇéííÕòÕ*µZÍÍM~ CJ©‚+'º#|v£ú€Ï€J&“*ŸÏ«ëâèèHŒŒØ#»ÜÕ‰Y{„mD¤ø Œ$“Iæææ…Œ¯…,,,°µµğSJíëøñ,şˆşF‡†‡‡Ï|¡Z­²»»K¥R)tÅŞ¦ô_Óû1 2™ŒñéœÍfí©üÊkœ&wK?újDÕ«ƒ`{èwÁ~'ìwÁ~'ìwÁ~§ã›Ü©÷ ììì011aĞ-är9ûgÄ«/“‚Ÿ¤Ói&''º…H$ÂÊÊ
+œ&/'¶İ`hóŸj]]]j{{Ûx T*©h4j'y‰Õó‹ˆ¼Bƒƒƒ
+
+w‰ÄVecc`YDî+¥¾i920º¹á|´ˆ|nµe„{ ‰D‚îînî®¦X,rrr’à4EüËmc‹V.—#‹™r×X,fW'µè¸÷pÇ	ÖY¤¦:í/¤·%ÎŠ
+ÍÌuåADÊ€ÙÒ‚âJ©r³FÚSúü.ÚinË:÷k¿–âñ¸É8n~ÍéBñ/ñhéål¤\ú?ÑqÏp Øï‚ıN ØïüÑV¶œÌ„Â    IEND®B`‚
+
+===== core/__init__.py =====
+
+
+===== core/attacks.py =====
+from core.constants import *
+
+#Attack detection along one ray: the first occupied square only, or 0 if the
+#ray runs off the board. Deliberately separate from line_moves, which has the
+#opposite contract.
+def first_blocker(chess, row, col, row_step, col_step):
+    board = chess.chess_board
+    new_row = row + row_step
+    new_col = col + col_step
+ 
+    while on_board(new_row, new_col):
+        if board[new_row][new_col] != 0:
+            return board[new_row][new_col]
+        new_row += row_step
+        new_col += col_step
+ 
+    return 0
+
+#Returns true if this square can be attacked by an enemy piece
+def is_guarded(chess, row, col, side) -> bool:
+    board = chess.chess_board
+    enemy = -side
+
+    #Knights
+    for row_add, col_add in KNIGHT_MOVES:
+        knight_row = row + row_add
+        knight_col = col + col_add
+        if on_board(knight_row, knight_col) and board[knight_row][knight_col] == (KNIGHT * enemy):
+            return True
+
+    #King (only the 8 squares around the king)
+    for row_add, col_add in KING_MOVES:
+        new_row = row + row_add
+        new_col = col + col_add
+        if on_board(new_row, new_col) and board[new_row][new_col] == KING * enemy:
+            return True
+
+    #For pawns. An enemy pawn attacks diagonally and 1 step in the forward direction
+    pawn_row = row + forward(side)
+    for col_add in (-1, 1):
+        if on_board(pawn_row, col + col_add) and board[pawn_row][col + col_add] == PAWN * enemy:
+            return True
+
+    #For Rooks and Queens
+    for row_add, col_add in ORTHOGONAL:
+        blocker = first_blocker(chess, row, col, row_add, col_add)
+        if blocker == ROOK * enemy or blocker == QUEEN * enemy:
+            return True
+
+    #For Bishops and Queens
+    for row_add, col_add in DIAGONAL:
+        blocker = first_blocker(chess, row, col, row_add, col_add)
+        if blocker == BISHOP * enemy or blocker == QUEEN * enemy:
+            return True
+
+    #PASSED all tests
+    return False
+
+#Returns true if the given side's king currently attacked
+def in_check(chess, side):
+    king_row, king_col = chess.white_king_pos if side > 0 else chess.black_king_pos
+    return is_guarded(chess, king_row, king_col, side)
+
+===== core/board.py =====
+from collections import deque
+from core.zobrist import *
+from core.constants import *
+
+class Chess:
+    def __init__(self):
+        self.chess_board = [
+            [-4, -2, -3, -5, -6, -3, -2, -4],
+            [-1, -1, -1, -1, -1, -1, -1, -1],
+            [0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0],
+            [1, 1, 1, 1, 1, 1, 1, 1],
+            [4, 2, 3, 5, 6, 3, 2, 4]
+            ]
+        #Move_Order contains a tuple of 6 ints per element, a dict and a tuple
+        #(piece_type at origin, origin_row, origin_column, piece_type at target, target_row, target_column)
+        #Dict full of potential en passant moves
+        #Tuple holding booleans of castling rights
+        self.move_order = deque()
+
+        #Dictionary holding a key (full board position) and value (how many repetitions)
+        self.position_counts = {}
+
+        #Full move count tracks the total number of turns (both players have made)
+        #One full turn is both players moving once
+        self.full_move_count = 1
+        self.play = 0
+        #Positive means that it is white's turn negative means black's turn
+        self.side_to_move = 1
+
+        #Half moves (just one person's turn) is tracked for 
+        self.half_move_clock = 0
+
+
+        #Castling rights for black and white (for both queen and king side castling)
+        #These fields become false if:
+        # 1. The king has moved
+        # 2. The rook has moved (king side would become false if kingside rook moved, but queenside would remain true)
+
+        self.white_king_castle = True
+        self.white_queen_castle = True
+
+        self.black_king_castle = True
+        self.black_queen_castle = True
+
+        #Contains sqaure coordinates containing squares which if they contain a pawn can en passant (as keys)
+        #Values are the place they can en passant to
+        self.en_passant = {}
+
+        self.black_king_pos = (0, 4)
+        self.white_king_pos = (7, 4)
+
+        #None while the game is live, otherwise the reason it ended
+        self.game = None
+
+        """Review zobrist implementation"""
+        self.zobrist = full_hash(self)
+
+        self.white_pieces = {(r, c) for r in range(8) for c in range(8)
+                             if self.chess_board[r][c] > 0}
+        self.black_pieces = {(r, c) for r in range(8) for c in range(8)
+                             if self.chess_board[r][c] < 0}
+
+        self.phase = self.count_phase()
+
+    #Derived from the board for the same reason the piece sets and the zobrist
+    #hash are. Hardcoding 6400 is only right for the starting array and
+    #silently wrong for any position built some other way, so anything that
+    #installs a new board (from_fen, a loaded game, a test fixture) has to
+    #call this the same way it already rebuilds the hash.
+    def count_phase(self):
+        return sum(PHASE_VALUES[abs(self.chess_board[r][c])]
+                   for r, c in self.white_pieces | self.black_pieces)
+
+
+===== core/constants.py =====
+#Piece Codes. Sign carries side, magnitude carries type
+PAWN = 1
+KNIGHT = 2
+BISHOP = 3
+ROOK = 4
+QUEEN = 5
+KING = 6
+
+#Piece name and value correlation
+PIECE_NAMES = {1: "pawn", 2: "knight", 3: "bishop", 4: "rook", 5: "queen", 6: "king"}
+#Pawn Promotion options
+PROMOTION_PIECES = [KNIGHT, BISHOP, ROOK, QUEEN]
+#Assigns values based on piece type
+PIECE_VALUES = {PAWN: 100, KNIGHT: 300, BISHOP: 300, ROOK: 500, QUEEN: 900, KING: 0}
+
+#Phase Values (Used for determining whether we are in the opening, middlegame, or endgame)
+PHASE_VALUES = {PAWN: 0, KNIGHT: 300, BISHOP: 300, ROOK: 500, QUEEN: 1000, KING: 0}
+MAX_PHASE = (PHASE_VALUES[KNIGHT] * 4 + PHASE_VALUES[BISHOP] * 4 + PHASE_VALUES[ROOK] * 4
+             + PHASE_VALUES[QUEEN] * 2)
+#List of tuples containing all knight moves, and increments for different directions
+KNIGHT_MOVES = ((-2, 1), (-2, -1), (2, 1), (2, -1), (1, -2), (-1, -2), (1, 2), (-1, 2))
+KING_MOVES = ((1, 1), (1, 0), (1, -1), (-1, 1), (-1, 0), (-1, -1), (0, 1), (0, -1))
+ORTHOGONAL = ((0, 1), (0, -1), (1, 0), (-1, 0))
+DIAGONAL = ((1, 1), (-1, 1), (-1, -1), (1, -1))
+
+#Sentinel for update_piece_position: "this piece has no square"
+NO_SQUARE = (-1, -1)
+
+#MATE value for search algs
+MATE = 100000
+
+COLUMN_CODE = {"a": 0, "b": 1, "c": 2, "d": 3, "e": 4, "f": 5, "g": 6, "h": 7}
+UCI_PROMOTION = {"q": QUEEN, "r": ROOK, "b": BISHOP, "n": KNIGHT}
+#Because python indexing wraps around, use this function to ensure the coords are on the board
+def on_board(r, c):
+    return 0 <= r < 8 and 0 <= c < 8
+
+#Determines which side the piece is on and returns 0 if there is no piece
+def side_of(piece):
+    if piece > 0:
+        return 1
+    elif piece < 0:
+        return -1
+    return 0
+
+#Shows the forward direction for black and white
+def forward(side):
+    return -side
+
+#Finds starting row for pawns
+def starting_row(side):
+    return 6 if side > 0 else 1
+
+#Finds promotion row for pawns
+def promotion_row(side):
+    return 0 if side > 0 else 7
+
+#Determines whether the piece encountered is ally or enemy (takeable)
+def is_enemy(piece, side):
+    return piece * side < 0
+
+#Determines whether the piece encountered is ally or enemy (takeable)
+def is_friendly(piece, side):
+    return piece * side > 0
+
+===== core/movegen.py =====
+from typing import NamedTuple
+from core.constants import *
+from core.attacks import *
+
+#Creating a move class to differentiate promotion moves by the piece they promote to
+class Move(NamedTuple):
+    row: int
+    col: int
+    promotion: int = 0 
+
+
+#Gets all available moves (both legal and non legal) for the piece at position (row, col)
+def available_moves(chess, row, col):
+    piece = chess.chess_board[row][col]
+    if piece == 0:
+        return []
+    
+    piece_type = abs(piece)
+    if piece_type == KING:
+        return king_moves(chess, row, col)
+    if piece_type == QUEEN:
+        return queen_moves(chess, row, col)
+    if piece_type == ROOK:
+        return rook_moves(chess, row, col)
+    if piece_type == BISHOP:
+        return bishop_moves(chess, row, col)
+    if piece_type == KNIGHT:
+        return knight_moves(chess, row, col)
+    if piece_type == PAWN:
+        return pawn_moves(chess, row, col)
+
+"""Line based moves"""
+#Gets all moves a piece can make incrementing for each element of direction
+#Keeps going until off the board or meets a blocker. If blocker is an enemy
+#include that square
+def line_moves(chess, row, col, directions):
+    #Initiate board, side, and move list
+    board = chess.chess_board
+    side = side_of(board[row][col])
+    move_list = []
+
+    #For each tuple of directions, keep stepping until meeting a blocker
+    #If blocker is enemy include that blocker in move list else break
+    for r, c in directions:
+        new_row = row + r
+        new_col = col + c
+        while on_board(new_row, new_col):
+            blocker = board[new_row][new_col]
+            #If no piece occupies that square add it
+            if blocker == 0:
+                move_list.append(Move(new_row, new_col))
+            else:
+                #If the occupying piece is an enemy add it and break
+                if is_enemy(blocker, side):
+                    move_list.append(Move(new_row, new_col))
+                break
+            #Increment row and column in while loop
+            new_row += r
+            new_col += c
+
+    return move_list
+
+#Gets all moves for a queen at the position (row, col)
+def queen_moves(chess, row, col):
+    return rook_moves(chess, row, col) + bishop_moves(chess, row, col)
+
+#Gets all moves for a rook at the position (row, col)
+def rook_moves(chess, row, col):
+    return line_moves(chess, row, col, ORTHOGONAL)
+
+#Gets all moves for a bishop at the position (row, col)
+def bishop_moves(chess, row, col):
+    return line_moves(chess, row, col, DIAGONAL)
+
+"""Knight moves"""
+#Gets all moves for a knight at the position (row, col)
+def knight_moves(chess, row, col):
+    #Gets board and knight piece
+    board = chess.chess_board
+    knight = board[row][col]
+
+    #Gets side of the knight
+    side = side_of(knight)
+
+    #Create list of tuples to hold the moves
+    move_list = []
+
+    for row_add, col_add in KNIGHT_MOVES:
+        new_row = row + row_add
+        new_col = col + col_add
+        if on_board(new_row, new_col) and not is_friendly(board[new_row][new_col], side):
+            move_list.append(Move(new_row, new_col))
+
+    return move_list
+
+"""Stepping pieces"""
+#Gets all moves for a king at the position (row, col)
+def king_moves(chess, row, col):
+    #Gets board and king piece
+    board = chess.chess_board
+    king = board[row][col]
+
+    #Gets side of the king
+    side = side_of(king)
+
+    #Create list of tuples to hold the moves
+    move_list = []
+
+    for row_add, col_add in KING_MOVES:
+        #New coords of potential moves
+        new_row = row + row_add
+        new_col = col + col_add
+        #Checks if new coords are inbounds
+        if not on_board(new_row, new_col):
+            continue
+        #Cannot land on your own pieces
+        if is_friendly(board[new_row][new_col], side):
+            continue
+        #Makes sure the square isn't guarded
+        if not is_guarded(chess, new_row, new_col, side):
+            move_list.append(Move(new_row, new_col))
+    
+    #Checks if king can castle
+    move_list += can_castle(chess, row, col, side)
+
+    return move_list
+
+#Gets all moves for a pawn at the position (row, col)
+def pawn_moves(chess, row, col):
+    #Gets board and pawn piece
+    board = chess.chess_board
+    pawn = board[row][col]
+
+    #Gets side of the pawn
+    side = side_of(pawn)
+    step = forward(side)
+    #Create list of tuples to hold the moves
+    move_list = []
+
+    #Checks if the pawn can move up one sqaure (if there is anything obstructing it)
+    one_row = row + step
+    if on_board(one_row, col) and board[one_row][col] == 0  :
+        #Checks for promotions (going forward)
+        if one_row == promotion_row(side):
+            for piece_type in PROMOTION_PIECES:
+                move_list.append(Move(one_row, col, piece_type))
+        else:
+            #If not a promotion, simply append move forward
+            move_list.append(Move(one_row, col))
+        #Checks if the pawn go move up two squares (if there are any obstructions and if it is on its starting square)
+        two_row = one_row + step
+        if on_board(two_row, col) and row == starting_row(side) and board[two_row][col] == 0:
+            move_list.append(Move(two_row, col))
+
+    #Checks if pawn can eat diagonally
+    for col_add in (-1, 1):
+        new_col = col_add + col
+        if on_board(one_row, new_col) and is_enemy(board[one_row][new_col], side):
+            if one_row == promotion_row(side):
+                for piece_type in PROMOTION_PIECES:
+                    move_list.append(Move(one_row, new_col, piece_type))
+            else:
+                move_list.append(Move(one_row, new_col))
+
+    #Checks En Passant
+    if chess.en_passant.get((row, col)) is not None:
+        move_list.append((chess.en_passant[(row, col)]))
+    
+    return move_list
+
+"""Castling functions"""
+#Returns castling moves if the king on the passed down side can castle
+def can_castle(chess, row, col, side):
+    castle_list = get_castling_rights(chess, side)
+    if len(castle_list) == 0:
+        return []
+
+    board = chess.chess_board
+    move_list = []
+
+    #Cannot castle out of check
+    if is_guarded(chess, row, col, side):
+        return []
+    
+    for side_dir in castle_list:
+        if side_dir == 6:
+            rook_col, col_step, king_dest = 7, 1, 6
+        else:
+            rook_col, col_step, king_dest = 0, -1, 2
+
+        #Every square between king and rook must be empty
+        blocked = False
+        scan = col + col_step
+        while scan != rook_col:
+            if board[row][scan] != 0:
+                blocked = True
+                break
+            scan += col_step
+        if blocked:
+            continue
+
+        #The king may not pass through or land on an attacked square
+        if is_guarded(chess, row, col + col_step, side):
+            continue
+        if is_guarded(chess, row, col + 2 * col_step, side):
+            continue
+
+        move_list.append(Move(row, king_dest))
+
+    #Return AFTER the loop, so both sides get considered
+    return move_list
+
+def get_castling_rights(chess, side):
+    if side > 0:
+        if chess.white_king_castle and chess.white_queen_castle:
+            return [6, 5]
+        elif chess.white_queen_castle:
+            return [5]
+        elif chess.white_king_castle:
+            return [6]
+        else:
+            return []
+    if side < 0:
+        if chess.black_king_castle and chess.black_queen_castle:
+            return [6, 5]
+        elif chess.black_queen_castle:
+            return [5]
+        elif chess.black_king_castle:
+            return [6]
+        else:
+            return []
+    return[]
+
+#TO DO: Convert get_legal_moves and legal_move_list to one pseudo_legal_moves function
+def get_legal_moves(chess):
+    board = chess.chess_board
+    side = chess.side_to_move
+    move_list = {}
+    for r, row in enumerate(board):
+        for c, piece in enumerate(row):
+            if piece != 0 and side_of(board[r][c]) == side:
+                move_list[(r, c)] = available_moves(chess, r, c)
+    
+    return move_list
+
+#Legal moves as a flat list, so a cutoff can break out of ONE loop
+def legal_move_list(chess):
+    moves = []
+    for origin, targets in get_legal_moves(chess).items():
+        for target in targets:
+            moves.append((origin, target))
+    return moves
+
+def pseudo_legal_moves(chess):
+    side = chess.side_to_move
+    squares = chess.white_pieces if side > 0 else chess.black_pieces
+    moves = []
+    for r, c in squares:
+        for move in available_moves(chess, r, c):
+            moves.append(((r, c), move))
+    return moves
+
+#Compares two moves
+def same_move(move1, move2):
+    (o1, m1), (o2, m2) = move1, move2
+    return (o1 == o2 and m1.row == m2.row and m1.col == m2.col
+            and m1.promotion == m2.promotion)
+
+===== core/notation.py =====
+from core.constants import PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING, UCI_PROMOTION, COLUMN_CODE
+from core.zobrist import full_hash
+from core.board import Chess
+from core.movegen import Move
+
+# ---------------------------------------------------------------------------
+# FEN parsing
+# ---------------------------------------------------------------------------
+
+FEN_PIECES = {"p": PAWN, "n": KNIGHT, "b": BISHOP,
+              "r": ROOK, "q": QUEEN, "k": KING}
+
+def from_fen(fen):
+    """Build a Chess object from a FEN string."""
+    parts = fen.split()
+    if len(parts) < 3:
+        raise ValueError(f"FEN needs at least 3 fields, got {len(parts)}: {fen!r}")
+
+    placement, side_field, castle_field = parts[0], parts[1], parts[2]
+    ep_field = parts[3] if len(parts) > 3 else "-"
+    halfmove = int(parts[4]) if len(parts) > 4 else 0
+    #Clamped because a 0 (or missing) full move number would put play
+    #below the start of the game
+    fullmove = max(int(parts[5]), 1) if len(parts) > 5 else 1
+
+    board = [[0] * 8 for _ in range(8)]
+    row = 0
+    col = 0
+    for ch in placement:
+        if ch == "/":
+            row += 1
+            col = 0
+        elif ch.isdigit():
+            col += int(ch)
+        else:
+            piece = FEN_PIECES[ch.lower()]
+            board[row][col] = piece if ch.isupper() else -piece
+            col += 1
+
+    chess = Chess()
+    chess.chess_board = board
+    chess.side_to_move = 1 if side_field == "w" else -1
+
+    chess.white_king_castle = "K" in castle_field
+    chess.white_queen_castle = "Q" in castle_field
+    chess.black_king_castle = "k" in castle_field
+    chess.black_queen_castle = "q" in castle_field
+
+    # Locate the kings rather than trusting a hardcoded square
+    chess.white_king_pos = None
+    chess.black_king_pos = None
+    for r in range(8):
+        for c in range(8):
+            if board[r][c] == KING:
+                chess.white_king_pos = (r, c)
+            elif board[r][c] == -KING:
+                chess.black_king_pos = (r, c)
+    if chess.white_king_pos is None or chess.black_king_pos is None:
+        raise ValueError("FEN is missing a king")
+
+    # This engine stores en passant as {capturing_pawn_square: destination Move}
+    chess.en_passant = {}
+    if ep_field != "-":
+        ep_col = ord(ep_field[0]) - ord("a")
+        ep_row = 8 - int(ep_field[1])
+        side = chess.side_to_move
+        pawn_row = ep_row + side          # square the capturing pawn sits on
+        if 0 <= pawn_row < 8:
+            for delta in (-1, 1):
+                c = ep_col + delta
+                if 0 <= c < 8 and board[pawn_row][c] == PAWN * side:
+                    chess.en_passant[(pawn_row, c)] = Move(ep_row, ep_col)
+
+    chess.half_move_clock = halfmove
+    chess.position_counts = {}
+    chess.game = None
+    #play is the ply count since the start of the game. full_move_count is
+    #derived from it here exactly the way make_move and undo_move derive it,
+    #so a position built from a FEN advances its clocks like a played one
+    chess.play = 2 * (fullmove - 1) + (0 if chess.side_to_move > 0 else 1)
+    chess.full_move_count = 1 + chess.play // 2
+    chess.move_order.clear()
+    chess.zobrist = full_hash(chess)
+    #The piece sets were built from the start position in __init__
+    chess.white_pieces = {(r, c) for r in range(8) for c in range(8)
+                          if board[r][c] > 0}
+    chess.black_pieces = {(r, c) for r in range(8) for c in range(8)
+                          if board[r][c] < 0}
+    #After the piece sets, because it counts over them
+    chess.phase = chess.count_phase()
+    return chess
+
+
+def square_name(row, col):
+    return "abcdefgh"[col] + str(8 - row)
+
+
+def move_name(origin, move):
+    name = square_name(*origin) + square_name(move.row, move.col)
+    if move.promotion:
+        name += "nbrq"[[KNIGHT, BISHOP, ROOK, QUEEN].index(move.promotion)]
+    return name
+
+
+# ---------------------------------------------------------------------------
+# FEN writing
+# ---------------------------------------------------------------------------
+
+#The other half of FEN_PIECES: piece type -> the letter FEN uses for it.
+#Case carries the side, the same way the sign of a piece code does.
+FEN_LETTERS = {PAWN: "P", KNIGHT: "N", BISHOP: "B",
+               ROOK: "R", QUEEN: "Q", KING: "K"}
+
+
+def to_fen(chess):
+    """
+    Write a Chess object out as a FEN string. The inverse of from_fen.
+
+    One asymmetry is worth knowing about: this engine only stores an en
+    passant square when a capture is actually available (refresh_en_passant
+    and full_hash both take that view, so two positions that differ only by
+    an unusable en passant square are the same position here). So a FEN
+    carrying an en passant square no pawn can use comes back out as "-".
+    from_fen(to_fen(x)) still matches x, and to_fen(from_fen(fen)) is stable
+    under any number of further round trips -- it is only the very first
+    string that can be rewritten.
+    """
+    ranks = []
+    for row in chess.chess_board:
+        text = ""
+        empty = 0
+        for piece in row:
+            if piece == 0:
+                empty += 1
+                continue
+            #Runs of empty squares are written as their length
+            if empty:
+                text += str(empty)
+                empty = 0
+            letter = FEN_LETTERS[abs(piece)]
+            text += letter if piece > 0 else letter.lower()
+        if empty:
+            text += str(empty)
+        ranks.append(text)
+    #Row 0 is rank 8, which is also the rank FEN starts from
+    placement = "/".join(ranks)
+
+    castling = ("K" if chess.white_king_castle else "") \
+             + ("Q" if chess.white_queen_castle else "") \
+             + ("k" if chess.black_king_castle else "") \
+             + ("q" if chess.black_queen_castle else "")
+
+    #en_passant maps {capturing pawn square: destination}, so every value is
+    #the same square: the one the capturing pawn would land on
+    if chess.en_passant:
+        destination = next(iter(chess.en_passant.values()))
+        ep_field = square_name(destination.row, destination.col)
+    else:
+        ep_field = "-"
+
+    return " ".join((
+        placement,
+        "w" if chess.side_to_move > 0 else "b",
+        castling or "-",
+        ep_field,
+        str(chess.half_move_clock),
+        str(chess.full_move_count),
+    ))
+
+def parse_uci_move(uci):
+    from_col = COLUMN_CODE[uci[0]]
+    from_row = 8 - int(uci[1])
+    to_col = COLUMN_CODE[uci[2]]
+    to_row = 8 - int(uci[3])
+    promotion = 0
+    if len(uci) == 5:
+        promotion = UCI_PROMOTION[uci[4]]
+
+    return ((from_row, from_col), Move(to_row, to_col, promotion))
+
+===== core/rules.py =====
+from core.constants import *
+from core.movegen import *
+from core.attacks import *
+from core.zobrist import *
+
+"""
+===========================================================================
+Making and unmaking moves
+===========================================================================
+"""
+def make_move(chess, origin, target):
+    """
+    Apply a move to the board. Returns true if it is legal false if not
+
+    An illegal move (one that leaves the mover's own king attacked) is undone
+    before returning False, so the caller can treat make_move as a filter:
+        if not make_move(chess, origin, move):
+            continue
+    """
+    if chess.game is not None:
+        return False
+    
+    board = chess.chess_board
+    from_row, from_col = origin
+    to_row, to_col, promotion = target
+    moving_piece = board[from_row][from_col]
+    captured_piece = board[to_row][to_col]
+    side = side_of(moving_piece)
+
+    #Guards against making a move with a piece at 0 and calling is guarded with side = 0
+    if moving_piece == 0:
+        raise ValueError(f"no piece at {origin}")
+
+    """-----------------------------Work out what kind of move this is-----------------------------"""
+    #A pawn moving diagonally onto an EMPTY square can only be en passant.
+    #The captured pawn is beside the destination, not on it.
+    ep_capture = None
+    if abs(moving_piece) == PAWN and to_col != from_col and captured_piece == 0:
+        ep_capture = (from_row, to_col)
+
+    #A king moving two files can only be castling
+    castle_rook = None
+    if abs(moving_piece) == KING and abs(to_col - from_col) == 2:
+        castle_rook = (from_row, 7, from_row, 5) if to_col > from_col else (from_row, 0, from_row, 3)
+
+    is_promotion = abs(moving_piece) == PAWN and to_row == promotion_row(side)
+    if is_promotion and promotion == 0:
+        raise ValueError(f"promotion move to {(to_row, to_col)} carries no piece type")
+    placed_piece = promotion * side if promotion else moving_piece
+    """------------------Save everything the move destroys, before anything changes------------------"""
+
+    chess.move_order.append((
+        moving_piece, from_row, from_col,
+        captured_piece, to_row, to_col,
+        ep_capture, castle_rook,
+        dict(chess.en_passant),
+        (chess.white_king_castle, chess.white_queen_castle,
+         chess.black_king_castle, chess.black_queen_castle),
+         chess.half_move_clock, chess.game, chess.zobrist, chess.phase))
+
+    """------------------Move the pieces, on the board and in the piece sets together------------------"""
+    relocate(chess, placed_piece, captured_piece, from_row, from_col,
+             to_row, to_col, ep_capture, castle_rook, side)
+
+    """---------------------Update the state derived from where the pieces now are---------------------"""
+    #Second call catches a rook captured on its own home square
+    #Zobrist hash is updated in these functions
+    update_castling_rights(chess, moving_piece, from_row, from_col)
+    update_castling_rights(chess, captured_piece, to_row, to_col)
+
+    if abs(moving_piece) == KING:
+        update_king_pos(chess, to_row, to_col, side)
+
+    refresh_en_passant(chess, moving_piece, from_row, to_row, to_col, side)
+
+    """----------------------Bring the hash up to date for the pieces that moved----------------------"""
+    rehash_pieces(chess, moving_piece, placed_piece, captured_piece, from_row, from_col,
+                  to_row, to_col, ep_capture, castle_rook, side)
+    #Updates phase score
+    #Doesn't have to consider ep because pawns are valued at 0
+    if captured_piece:
+        chess.phase -= PHASE_VALUES[abs(captured_piece)]
+    if placed_piece != moving_piece:
+        chess.phase += PHASE_VALUES[abs(placed_piece)] - PHASE_VALUES[abs(moving_piece)]
+    """---------------------------------------Advance the clocks---------------------------------------"""
+    chess.play += 1
+    chess.full_move_count = 1 + chess.play // 2
+    chess.side_to_move *= -1
+    toggle_side(chess)
+    chess.half_move_clock += 1
+
+    #Counted BEFORE the legality check, so undo_move can always decrement
+    #symmetrically without needing to know whether the move was legal
+    key = chess.zobrist
+    chess.position_counts[chess.zobrist] = chess.position_counts.get(key, 0) + 1
+
+    """---------------------Legality: a move that exposes your king never happened---------------------"""   
+    if in_check(chess, side):
+        undo_move(chess)
+        return False
+    
+    """-----------------------Draw detection, only for moves that actually saved-----------------------"""   
+    if chess.position_counts[key] >= 3:
+        chess.game = "Draw by repetition"
+    update_fifty_move_rule(chess, moving_piece, captured_piece)
+    return True
+
+#Moves pieces on the board and in the piece sets. These two representations
+#have to change together or pseudo_legal_moves goes stale.
+def relocate(chess, placed_piece, captured_piece, from_row, from_col,
+             to_row, to_col, ep_capture, castle_rook, side):
+    
+    board = chess.chess_board
+
+    #The mover. placed_piece differs from moving_piece only on a promotion.
+    board[to_row][to_col] = placed_piece
+    board[from_row][from_col] = 0
+    update_piece_position(chess, (from_row, from_col), (to_row, to_col), side)
+
+    #Anything standing on the destination is gone
+    if captured_piece != 0:
+        update_piece_position(chess, (to_row, to_col), NO_SQUARE, -side)
+
+    #An en passant victim sits beside the destination, not on it
+    if ep_capture is not None:
+        board[ep_capture[0]][ep_capture[1]] = 0
+        update_piece_position(chess, (ep_capture[0], ep_capture[1]), NO_SQUARE, -side)
+
+    #Castling moves a second piece of the same side
+    if castle_rook is not None:
+        r0, c0, r1, c1 = castle_rook
+        board[r1][c1] = board[r0][c0]
+        board[r0][c0] = 0
+        update_piece_position(chess, (r0, c0), (r1, c1), side)
+
+#Rebuilds chess.en_passant for the position the mover just created, and keeps
+#the hash in step. Only a pawn double step can create a capture opportunity.
+def refresh_en_passant(chess, moving_piece, from_row, to_row, to_col, side):
+    board = chess.chess_board
+ 
+    #XOR the OLD file out before discarding it
+    if chess.en_passant:
+        toggle_en_passant(chess, next(iter(chess.en_passant.values())).col)
+    chess.en_passant.clear()
+ 
+    if abs(moving_piece) != PAWN or abs(from_row - to_row) != 2:
+        return
+ 
+    for col_add in (1, -1):
+        new_col = to_col + col_add
+        if on_board(to_row, new_col) and board[to_row][new_col] == PAWN * -side:
+            chess.en_passant[(to_row, new_col)] = Move(
+                to_row + forward(-side), to_col)
+ 
+    #Only hash it when a capture is actually available, matching full_hash
+    if chess.en_passant:
+        toggle_en_passant(chess, to_col)
+
+#Every piece-square change the move made, XORed into the hash.
+def rehash_pieces(chess, moving_piece, placed_piece, captured_piece,
+                  from_row, from_col, to_row, to_col, ep_capture,
+                  castle_rook, side):
+    #Lift the mover off its origin
+    toggle_piece(chess, moving_piece, from_row, from_col)
+    #Remove whatever stood on the destination
+    if captured_piece:
+        toggle_piece(chess, captured_piece, to_row, to_col)
+    #Set the mover (or its promoted form) down
+    toggle_piece(chess, placed_piece, to_row, to_col)
+
+    #If en_passant remove the captured pawn
+    if ep_capture is not None:
+        toggle_piece(chess, PAWN * -side, ep_capture[0], ep_capture[1])
+
+    #If castles move the rook
+    if castle_rook is not None:
+        r0, c0, r1, c1 = castle_rook
+        toggle_piece(chess, ROOK * side, r0, c0)
+        toggle_piece(chess, ROOK * side, r1, c1)
+ 
+def undo_move(chess):
+    """Reverses make_move exactly, including the piece sets and the hash."""
+    (moving_piece, from_row, from_col,
+     captured_piece, to_row, to_col,
+     ep_capture, castle_rook, prev_en_passant, prev_rights,
+     prev_half_move_clock, prev_game, prev_zobrist, prev_phase) = chess.move_order.pop()
+    board = chess.chess_board
+    side = side_of(moving_piece)
+ 
+    #FIRST, before the board changes: the key describes the position we are
+    #leaving, so it cannot be computed after the pieces move back
+    key = chess.zobrist
+    remaining = chess.position_counts.get(key, 0) - 1
+    if remaining <= 0:
+        chess.position_counts.pop(key, None)
+    else:
+        chess.position_counts[key] = remaining
+ 
+    #RESTORED, not recomputed
+    chess.zobrist = prev_zobrist
+    chess.phase = prev_phase
+
+    #-- Board and piece sets, mirroring relocate() in reverse -------------
+    if castle_rook is not None:
+        r0, c0, r1, c1 = castle_rook
+        board[r0][c0] = board[r1][c1]
+        board[r1][c1] = 0
+        update_piece_position(chess, (r1, c1), (r0, c0), side)
+ 
+    board[from_row][from_col] = moving_piece
+    board[to_row][to_col] = captured_piece
+    update_piece_position(chess, (to_row, to_col), (from_row, from_col), side)
+ 
+    if captured_piece != 0:
+        update_piece_position(chess, NO_SQUARE, (to_row, to_col), -side)
+ 
+    if ep_capture is not None:
+        board[ep_capture[0]][ep_capture[1]] = PAWN * -side
+        update_piece_position(chess, NO_SQUARE, ep_capture, -side)
+ 
+    #-- Derived state ----------------------------------------------------
+    if abs(moving_piece) == KING:
+        update_king_pos(chess, from_row, from_col, side)
+ 
+    chess.en_passant.clear()
+    chess.en_passant.update(prev_en_passant)
+    (chess.white_king_castle, chess.white_queen_castle,
+     chess.black_king_castle, chess.black_queen_castle) = prev_rights
+ 
+    chess.half_move_clock = prev_half_move_clock
+    chess.game = prev_game
+    chess.play -= 1
+    chess.full_move_count = 1 + chess.play // 2
+    chess.side_to_move *= -1
+
+"""Updating castling and piece positions"""
+#Updates castling rights if the kning moves or if the rook moves
+#Updates zobrist hash as well
+def update_castling_rights(chess, piece, row, col):
+    #If king moves, both sides (king and queen sides) lose their rights
+    if abs(piece) == KING:
+        if piece > 0:
+            #Only update if field and zobrist hash if there is a change
+            if chess.white_king_castle:
+                toggle_castle_rights(chess, 0)
+                chess.white_king_castle = False
+            if chess.white_queen_castle:
+                toggle_castle_rights(chess, 1)
+                chess.white_queen_castle = False
+        else:
+            if chess.black_king_castle:
+                toggle_castle_rights(chess, 2)
+                chess.black_king_castle = False
+            if chess.black_queen_castle:
+                toggle_castle_rights(chess, 3)
+                chess.black_queen_castle = False
+    #If a rook move, only the king or queen side loses its right
+    elif abs(piece) == ROOK:
+        if piece > 0 and row == 7:
+            if col == 7 and chess.white_king_castle:
+                toggle_castle_rights(chess, 0)
+                chess.white_king_castle = False
+            elif col == 0 and chess.white_queen_castle:
+                toggle_castle_rights(chess, 1)
+                chess.white_queen_castle = False
+        elif piece < 0 and row == 0:
+            if col == 7 and chess.black_king_castle:
+                toggle_castle_rights(chess, 2)
+                chess.black_king_castle = False
+            elif col == 0 and chess.black_queen_castle:
+                toggle_castle_rights(chess, 3)
+                chess.black_queen_castle = False      
+
+#Updates king position when a king moves
+def update_king_pos(chess, row, col, side):
+    if side > 0:
+        chess.white_king_pos = (row, col)
+    else:
+        chess.black_king_pos = (row, col)
+
+#Promotes pawn to inputted piece type (defaults to QUEEN)
+def promote(chess, row, col, side, piece_type=QUEEN):
+    chess.chess_board[row][col] = piece_type * side
+
+#NO_SQUARE as the target removes a piece; NO_SQUARE as the origin adds one.
+#remove() rather than discard() is deliberate: a KeyError here means the sets
+#have drifted out of step with the board, and you want to hear about it now.
+def update_piece_position(chess, origin, target, side):
+    if side > 0:
+        squares = chess.white_pieces
+    elif side < 0:
+        squares = chess.black_pieces
+    else:
+        return
+
+    if origin[0] >= 0:
+        squares.remove(origin)
+    if target[0] >= 0:
+        squares.add(target)
+
+"""Game state moves: Checks for for game results and draws"""
+
+#Checks for fifty move rule
+def update_fifty_move_rule(chess, og_piece, tar_piece):
+    if abs(og_piece) == PAWN or tar_piece != 0:
+        chess.half_move_clock = 0
+    elif chess.half_move_clock >= 100:
+        chess.game = "Draw by fifty move rule"
+
+#Does this side have any move that does not leave its own king in check?
+#Stops at the first one, so it is far cheaper than generating them all.
+def has_legal_move(chess):
+    for origin, target in legal_move_list(chess):
+        if make_move(chess, origin, target):
+            undo_move(chess)
+            return True
+    return False
+
+#None while the game is live, otherwise the reason it ended.
+#Call this AFTER a move has been made, to judge the position the mover left.
+def game_result(chess):
+    if chess.game is not None:
+        return chess.game                      # repetition or fifty move, already set
+    if has_legal_move(chess):
+        return None
+    if in_check(chess, chess.side_to_move):
+        return "Checkmate"
+    return "Draw by stalemate"
+
+
+===== core/zobrist.py =====
+from core.constants import *
+import random
+
+random.seed(0xC0FFEE) #Fixed seed so games are reproducible
+
+PIECE_KEYS = [[[random.getrandbits(64) for _ in range(8)]
+               for _ in range(8)] for _ in range(12)]
+
+SIDE_KEY = random.getrandbits(64)
+"""
+Castling Keys are in the following order: 
+white kingside, white queenside, black kingside, black queenside
+"""
+CASTLING_KEYS = [random.getrandbits(64) for _ in range(4)]
+EN_PASSANT_FILE_KEY = [random.getrandbits(64) for _ in range(8)]
+
+def piece_index(piece):
+    """converts pieces on a -6 to 6+ scale to 0 ... 11 scale"""
+    return (abs(piece) - 1) + (0 if piece > 0 else 6)
+
+def full_hash(chess):
+    """Compute from scratch. Once at startup then update by move"""
+    h = 0
+    for r, row in enumerate(chess.chess_board):
+        for c, piece in enumerate(row):
+            if piece:
+                h ^= PIECE_KEYS[piece_index(piece)][r][c]
+
+    if chess.side_to_move < 0:
+        h ^= SIDE_KEY
+
+    for i, can_castle in enumerate((chess.white_king_castle, chess.white_queen_castle,
+                                    chess.black_king_castle, chess.black_queen_castle)):
+        if can_castle:
+            h ^= CASTLING_KEYS[i]
+    if chess.en_passant:
+        destination = next(iter(chess.en_passant.values()))
+        h ^= EN_PASSANT_FILE_KEY[destination.col]
+    
+    return h
+
+"""
+Review zobrist function: directly updates chess.zobrist field
+"""
+def toggle_piece(chess, piece, row, col):
+    chess.zobrist ^= PIECE_KEYS[piece_index(piece)][row][col]
+
+def toggle_en_passant(chess, col):
+    chess.zobrist ^= EN_PASSANT_FILE_KEY[col]
+
+def toggle_castle_rights(chess, key):
+    chess.zobrist ^= CASTLING_KEYS[key]
+
+def toggle_side(chess):
+    chess.zobrist ^= SIDE_KEY
+
+===== docs/PLANS.md =====
+Update board to hold not only pieces but logs of turns they moved on, and where they moved from
+
+Update piece so that they are no longer represented as an int but as a piece object that already has all their legal moves
+
+
+===== docs/SPEC.md =====
+
+
+===== engine/__init__.py =====
+
+
+===== engine/evaluate.py =====
+from core.constants import *
+from engine.psqt import *
+
+def self_evaluate(chess):
+    """
+    Material plus placement, from the side-to-move POV.
+
+    No PIECE_VALUES here: TABLE already has the material folded in, so adding
+    them again would count every piece twice.
+
+    The two totals stay separate integers through the loop and blend once on
+    the way out. A weighted sum is linear:
+
+        sum(w * mid + (1 - w) * end)  ==  w * sum(mid) + (1 - w) * sum(end)
+
+    so this is two float multiplies for the whole board instead of two per
+    piece, and the loop itself never touches a float.
+    """
+    board = chess.chess_board
+    mid_table = TABLE[MIDGAME]
+    end_table = TABLE[ENDGAME]
+
+    middle = end = 0
+
+    #The table already knows which row a black piece reads, so both loops look
+    #the same. Only the sign differs: my pieces count for me, yours against me.
+    for row, col in chess.white_pieces:
+        piece = board[row][col]
+        middle += mid_table[piece][row][col]
+        end += end_table[piece][row][col]
+
+    for row, col in chess.black_pieces:
+        piece = board[row][col]
+        middle -= mid_table[piece][row][col]
+        end -= end_table[piece][row][col]
+            
+    #Clamped because a promotion can put more than the starting material on the
+    #board. Past 1.0 the endgame weight goes negative and we extrapolate past
+    #the midgame table instead of interpolating between the two.
+    middle_game = min(chess.phase, MAX_PHASE) / MAX_PHASE
+    score = middle * middle_game + end * (1 - middle_game)
+
+    #Everything above is from white's point of view
+    return score * chess.side_to_move
+
+
+
+
+===== engine/ordering.py =====
+from operator import itemgetter
+from core.constants import PIECE_VALUES
+from core.movegen import same_move
+
+#One thing to note, this function orders moves by capture score, but it doesn't see en_passant captures
+def order_moves(chess, moves, tt_move=None):
+    board = chess.chess_board
+    scored = []
+
+    for origin, move in moves:
+        #If we have a move from our transposition table or a previous best move,
+        #We want to check that move first
+        if tt_move is not None and same_move((origin, move), tt_move):
+            scored.append((10_000_000, origin, move))
+            continue
+
+        victim = board[move.row][move.col]
+        if victim:
+            attacker = board[origin[0]][origin[1]]
+            score = 10 * PIECE_VALUES[abs(victim)] - PIECE_VALUES[abs(attacker)]
+        else: score = 0
+
+        if move.promotion != 0:
+            score += PIECE_VALUES[abs(move.promotion)]
+        scored.append((score, origin, move))
+    
+    scored.sort(key=itemgetter(0), reverse=True)
+    return [(origin, move) for _, origin, move in scored]
+
+#killers = [[None, None] for _ in range(64)]
+#history = [[0] * 64 for _ in range(64)]
+
+===== engine/player.py =====
+from abc import ABC, abstractmethod
+import random
+from engine.search import alpha_beta_engine
+from core.rules import make_move
+
+class Player(ABC):
+    @abstractmethod
+    def select_move(self, board):
+        """Every player must have a way to choose a move"""
+        pass
+
+class RandomPlayer(Player):
+    def select_move(self, move_list):
+        #Randomly selects a move
+        move = random.choice(move_list)
+        while make_move(move) is False:
+            move = random.choice(move_list)
+        return move
+
+class SearchPlayer(Player):
+    def __init__(self, depth, nodes, time, engine):
+        self.depth = depth
+        self.nodes = nodes
+        self.time = time
+        self.engine = engine
+        
+    def select_move(self, chess):
+        #Runs neg-max /alpha-beta search
+        move, score = self.engine.search(chess, self.depth, self.nodes, self.time)
+        return move
+
+===== engine/psqt.py =====
+"""
+ORIENTATION
+    Every table is written rank 8 first, so its row index lines up with
+    chess_board's row index for a WHITE piece:
+ 
+        white piece at board[r][c]  ->  table[r][c]
+        black piece at board[r][c]  ->  table[7 - r][c]
+ 
+    That mirror is why one table per piece is enough -- there is no separate
+    set for black. Only the rank flips; the files do not, because White's
+    a-file is Black's a-file too.
+ 
+    You should not normally index PSQT by hand. TABLE below has the material
+    value folded in, the rank already mirrored, and Black's side already
+    negated, so evaluate.py can add one lookup per piece.
+"""
+from core.constants import PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING
+
+MIDGAME, ENDGAME = 0, 1
+
+
+"""
+===========================================================================
+The tables
+===========================================================================
+Positional bonus only -- material lives in MATERIAL below. Units are centipawns on the pawn = 100 scale.
+"""
+
+PSQT = {
+  MIDGAME: {
+    PAWN: [
+        [    0,     0,     0,     0,     0,     0,     0,     0],   # rank 8
+        [  120,   163,    74,   116,    83,   154,    41,   -13],   # rank 7
+        [   -7,     9,    32,    38,    79,    68,    30,   -24],   # rank 6
+        [  -17,    16,     7,    26,    28,    15,    21,   -28],   # rank 5
+        [  -33,    -2,    -6,    15,    21,     7,    12,   -30],   # rank 4
+        [  -32,    -5,    -5,   -12,     4,     4,    40,   -15],   # rank 3
+        [  -43,    -1,   -24,   -28,   -18,    29,    46,   -27],   # rank 2
+        [    0,     0,     0,     0,     0,     0,     0,     0],   # rank 1
+    ],
+    KNIGHT: [
+        [ -204,  -109,   -41,   -60,    74,  -118,   -18,  -130],   # rank 8
+        [  -89,   -50,    88,    44,    28,    76,     9,   -21],   # rank 7
+        [  -57,    73,    45,    79,   102,   157,    89,    54],   # rank 6
+        [  -11,    21,    23,    65,    45,    84,    22,    27],   # rank 5
+        [  -16,     5,    20,    16,    34,    23,    26,   -10],   # rank 4
+        [  -28,   -11,    15,    12,    23,    21,    30,   -20],   # rank 3
+        [  -35,   -65,   -15,    -4,    -1,    22,   -17,   -23],   # rank 2
+        [ -128,   -26,   -71,   -40,   -21,   -34,   -23,   -28],   # rank 1
+    ],
+    BISHOP: [
+        [  -35,     5,  -100,   -45,   -30,   -51,     9,   -10],   # rank 8
+        [  -32,    20,   -22,   -16,    37,    72,    22,   -57],   # rank 7
+        [  -20,    45,    52,    49,    43,    61,    45,    -2],   # rank 6
+        [   -5,     6,    23,    61,    45,    45,     9,    -2],   # rank 5
+        [   -7,    16,    16,    32,    41,    15,    12,     5],   # rank 4
+        [    0,    18,    18,    18,    17,    33,    22,    12],   # rank 3
+        [    5,    18,    20,     0,     9,    26,    40,     1],   # rank 2
+        [  -40,    -4,   -17,   -26,   -16,   -15,   -48,   -26],   # rank 1
+    ],
+    ROOK: [
+        [   39,    51,    39,    62,    77,    11,    38,    52],   # rank 8
+        [   33,    39,    71,    76,    98,    82,    32,    54],   # rank 7
+        [   -6,    23,    32,    44,    21,    55,    74,    20],   # rank 6
+        [  -29,   -13,     9,    32,    29,    43,   -10,   -24],   # rank 5
+        [  -44,   -32,   -15,    -1,    11,    -9,     7,   -28],   # rank 4
+        [  -55,   -30,   -20,   -21,     4,     0,    -6,   -40],   # rank 3
+        [  -54,   -20,   -24,   -11,    -1,    13,    -7,   -87],   # rank 2
+        [  -23,   -16,     1,    21,    20,     9,   -45,   -32],   # rank 1
+    ],
+    QUEEN: [
+        [  -34,     0,    35,    15,    72,    54,    52,    55],   # rank 8
+        [  -29,   -48,    -6,     1,   -20,    70,    34,    66],   # rank 7
+        [  -16,   -21,     9,    10,    35,    68,    57,    70],   # rank 6
+        [  -33,   -33,   -20,   -20,    -1,    21,    -2,     1],   # rank 5
+        [  -11,   -32,   -11,   -12,    -2,    -5,     4,    -4],   # rank 4
+        [  -17,     2,   -13,    -2,    -6,     2,    17,     6],   # rank 3
+        [  -43,   -10,    13,     2,    10,    18,    -4,     1],   # rank 2
+        [   -1,   -22,   -11,    12,   -18,   -30,   -38,   -61],   # rank 1
+    ],
+    KING: [
+        [  -79,    28,    20,   -18,   -68,   -41,     2,    16],   # rank 8
+        [   35,    -1,   -24,    -9,   -10,    -5,   -46,   -35],   # rank 7
+        [  -11,    29,     2,   -20,   -24,     7,    27,   -27],   # rank 6
+        [  -21,   -24,   -15,   -33,   -37,   -30,   -17,   -44],   # rank 5
+        [  -60,    -1,   -33,   -48,   -56,   -54,   -40,   -62],   # rank 4
+        [  -17,   -17,   -27,   -56,   -54,   -37,   -18,   -33],   # rank 3
+        [    1,     9,   -10,   -78,   -52,   -20,    11,    10],   # rank 2
+        [  -18,    44,    15,   -66,    10,   -34,    29,    17],   # rank 1
+    ],
+  },
+  ENDGAME: {
+    PAWN: [
+        [    0,     0,     0,     0,     0,     0,     0,     0],   # rank 8
+        [  217,   211,   193,   163,   179,   161,   201,   228],   # rank 7
+        [  115,   122,   104,    82,    68,    65,   100,   102],   # rank 6
+        [   39,    29,    16,     6,    -2,     5,    21,    21],   # rank 5
+        [   16,    11,    -4,    -9,    -9,   -10,     4,    -1],   # rank 4
+        [    5,     9,    -7,     1,     0,    -6,    -1,   -10],   # rank 3
+        [   16,    10,    10,    12,    16,     0,     2,    -9],   # rank 2
+        [    0,     0,     0,     0,     0,     0,     0,     0],   # rank 1
+    ],
+    KNIGHT: [
+        [  -71,   -46,   -16,   -34,   -38,   -33,   -77,  -121],   # rank 8
+        [  -30,   -10,   -30,    -2,   -11,   -30,   -29,   -63],   # rank 7
+        [  -29,   -24,    12,    11,    -1,   -11,   -23,   -50],   # rank 6
+        [  -21,     4,    27,    27,    27,    13,    10,   -22],   # rank 5
+        [  -22,    -7,    20,    30,    20,    21,     5,   -22],   # rank 4
+        [  -28,    -4,    -1,    18,    12,    -4,   -24,   -27],   # rank 3
+        [  -51,   -24,   -12,    -6,    -2,   -24,   -28,   -54],   # rank 2
+        [  -35,   -62,   -28,   -18,   -27,   -22,   -61,   -78],   # rank 1
+    ],
+    BISHOP: [
+        [  -17,   -26,   -13,   -10,    -9,   -11,   -21,   -29],   # rank 8
+        [  -10,    -5,     9,   -15,    -4,   -16,    -5,   -17],   # rank 7
+        [    2,   -10,     0,    -1,    -2,     7,     0,     5],   # rank 6
+        [   -4,    11,    15,    11,    17,    12,     4,     2],   # rank 5
+        [   -7,     4,    16,    23,     9,    12,    -4,   -11],   # rank 4
+        [  -15,    -4,    10,    12,    16,     4,    -9,   -18],   # rank 3
+        [  -17,   -22,    -9,    -1,     5,   -11,   -18,   -33],   # rank 2
+        [  -28,   -11,   -28,    -6,   -11,   -20,    -6,   -21],   # rank 1
+    ],
+    ROOK: [
+        [   16,    12,    22,    18,    15,    15,    10,     6],   # rank 8
+        [   13,    16,    16,    13,    -4,     4,    10,     4],   # rank 7
+        [    9,     9,     9,     6,     5,    -4,    -6,    -4],   # rank 6
+        [    5,     4,    16,     1,     2,     1,    -1,     2],   # rank 5
+        [    4,     6,    10,     5,    -6,    -7,   -10,   -13],   # rank 4
+        [   -5,     0,    -6,    -1,    -9,   -15,   -10,   -20],   # rank 3
+        [   -7,    -7,     0,     2,   -11,   -11,   -13,    -4],   # rank 2
+        [  -11,     2,     4,    -1,    -6,   -16,     5,   -24],   # rank 1
+    ],
+    QUEEN: [
+        [  -11,    27,    27,    33,    33,    23,    12,    24],   # rank 8
+        [  -21,    24,    39,    50,    71,    30,    37,     0],   # rank 7
+        [  -24,     7,    11,    60,    57,    43,    23,    11],   # rank 6
+        [    4,    27,    29,    55,    70,    49,    70,    44],   # rank 5
+        [  -22,    34,    23,    57,    38,    41,    48,    28],   # rank 4
+        [  -20,   -33,    18,     7,    11,    21,    12,     6],   # rank 3
+        [  -27,   -28,   -37,   -20,   -20,   -28,   -44,   -39],   # rank 2
+        [  -40,   -34,   -27,   -52,    -6,   -39,   -24,   -50],   # rank 1
+    ],
+    KING: [
+        [  -90,   -43,   -22,   -22,   -13,    18,     5,   -21],   # rank 8
+        [  -15,    21,    17,    21,    21,    46,    28,    13],   # rank 7
+        [   12,    21,    28,    18,    24,    55,    54,    16],   # rank 6
+        [  -10,    27,    29,    33,    32,    40,    32,     4],   # rank 5
+        [  -22,    -5,    26,    29,    33,    28,    11,   -13],   # rank 4
+        [  -23,    -4,    13,    26,    28,    20,     9,   -11],   # rank 3
+        [  -33,   -13,     5,    16,    17,     5,    -6,   -21],   # rank 2
+        [  -65,   -41,   -26,   -13,   -34,   -17,   -29,   -52],   # rank 1
+    ],
+  }
+}
+
+"""
+===========================================================================
+Material
+===========================================================================
+Phase dependent on purpose: a pawn grows as the board empties, a knight
+shrinks, a rook grows.
+
+These are deliberately NOT constants.PIECE_VALUES. Those stay as they are for
+MVV-LVA in ordering.py, where only the relative order matters. These are the
+values the tables above were tuned against, so using them here keeps the two
+halves of the evaluation consistent. Two value sets for two different jobs.
+"""
+
+MATERIAL = {
+    MIDGAME: {PAWN: 100, KNIGHT: 411, BISHOP: 445, ROOK: 582, QUEEN: 1250, KING: 0},
+    ENDGAME: {PAWN: 115, KNIGHT: 343, BISHOP: 362, ROOK: 624, QUEEN: 1141, KING: 0},
+}
+
+"""
+===========================================================================
+The combined lookup
+===========================================================================
+TABLE[phase][piece][row][col] -> material + placement, ready to add.
+
+The key is the SIGNED board value, the thing chess_board already holds, not
+the piece type. -2 and 2 are separate entries. That is what lets the mirror
+live inside the table: a black piece standing on row r gets its entry built
+from row 7 - r, so the caller never flips anything and never calls abs().
+
+Values stay positive for both colours. An entry is what the piece is worth
+on that square, not its contribution to the score, so the evaluation still
+adds for white and subtracts for black.
+"""
+
+def _build_table():
+    table = {}
+    for phase in (MIDGAME, ENDGAME):
+        table[phase] = {}
+        for piece_type in (PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING):
+            material = MATERIAL[phase][piece_type]
+            placement = PSQT[phase][piece_type]
+            for side in (1, -1):
+                rows = []
+                for row in range(8):
+                    #row is where the piece stands, look is the row it reads
+                    look = row if side > 0 else 7 - row
+                    rows.append([material + value for value in placement[look]])
+                table[phase][piece_type * side] = rows
+    return table
+
+
+TABLE = _build_table()
+
+===== engine/search.py =====
+import math
+import time
+from core.rules import *
+from core.movegen import *
+from engine.evaluate import self_evaluate
+from engine.ordering import order_moves
+from core.constants import MATE
+class alpha_beta_engine:
+    def __init__(self):
+        self.t_table = Transposition_Table()
+
+    def negative_max(self, chess, depth, alpha, beta, ply):
+        """
+        This was an alpha beta search for the best move
+        Now is a still an alpha beta search but seeks to maximize itself by minimizing the
+        opponents move
+
+        params:
+        chess: the current chess board (also a chess object)
+        depth: how many moves to look ahead (currently max for time efficiency is 5)
+        alpha: the best score we have guaranteed higher up (initially -inf)
+        beta: the best score the opponent has guaranteed for themselves higher up (initially inf)
+        """
+        #First, check time to see if we passed time or node limit
+        check_time()
+        check_nodes()
+        #A draw is worth 0 points. Don't include state evaluation with a draw score
+        if chess.game is not None:
+            return 0
+
+        #Check if there is an entry for this current position
+        #If a score exists, we want to use that score to either fail fast or find the best_move
+        tt_score, tt_move = self.t_table.tt_probe(chess.zobrist, depth, alpha, beta, ply)
+        if tt_score is not None and ply > 0:
+            return tt_score
+        
+        #Because we cut at depth == 0 without checking for checks/mates, we at this guard
+        #Note ply is capped at 20 so it doesn't get stuck
+        #NOTE: a more thorough check would be if the side to move is in check, we put all possible evasions
+        #in the quiescence function and evaluate all of them
+        if ply < 30 and in_check(chess, chess.side_to_move):
+            depth += 1
+        if depth == 0:
+            return self.quiescence(chess, alpha, beta)
+        
+        #Get all legal moves in current state
+        #order_moves wires in the tt_move to be first in line
+        move_list = order_moves(chess, pseudo_legal_moves(chess), tt_move)
+
+        best_move, best_score = None, -math.inf
+        legal_found = False
+        original_alpha = alpha
+
+        #Iterate through legal moves
+        for origin, move in move_list:
+                #Only recurse if move is legal
+                if not make_move(chess, origin, move):
+                    continue
+                legal_found = True
+                #Recurse down. The finally is what keeps the board consistent: if
+                #check_time() raises Timeout anywhere below this frame, the exception
+                #unwinds through here and the move still gets undone.
+                try:
+                    score = -self.negative_max(chess, depth - 1, -beta, -alpha, ply + 1)
+                finally:
+                    undo_move(chess)
+
+                if score > best_score:
+                    best_score = score
+                    best_move = (origin, move)
+                if best_score > alpha:
+                    alpha = best_score
+                #Prune Branch if the minimizer has a better option
+                if alpha >= beta:
+                    break
+
+        if not legal_found:  
+            #Checks if no legal moves are found
+            return -(MATE - ply) if in_check(chess, chess.side_to_move) else 0
+
+        if best_score >= beta:
+            flag = LOWER
+        elif best_score <= original_alpha:
+            flag = UPPER
+        else:
+            flag = EXACT
+
+        #Store best move that could be made at this position
+        self.t_table.tt_store(chess.zobrist, depth, best_score, flag, best_move, ply)
+        return best_score
+
+    def get_best_move(self, chess, depth, prev_best=None):
+        #Returns the best move for player using Alpha-Beta search
+        best_move, best_score = None, -math.inf
+        #initialize bounds
+        alpha, beta = -math.inf, math.inf
+
+        hint = prev_best
+        if hint is None:
+            _, hint = self.t_table.tt_probe(chess.zobrist, depth, alpha, beta, 0)
+        #Iterate through move list
+        for origin, move in order_moves(chess, pseudo_legal_moves(chess), hint):
+                #Only recurse if move is legal
+                if not make_move(chess, origin, move):
+                    continue
+
+                try:
+                    #The root is maximizing, so we want to minimize the opponents' score
+                    score = -self.negative_max(chess, depth - 1, -beta, -alpha, 1)
+                finally:
+                    undo_move(chess)
+
+                if score > best_score:
+                    best_score, best_move = score, (origin, move)
+                if best_score > alpha:
+                    alpha = best_score
+
+        #Save move to TT
+        if best_move is not None:
+            self.t_table.tt_store(chess.zobrist, depth, best_score, EXACT, best_move, 0)
+
+        return best_move, best_score
+
+    def quiescence(self, chess, alpha, beta):
+
+        #Check time and node limit
+        check_time()
+        check_nodes()
+        stand_still = self_evaluate(chess)
+        if stand_still >= beta:
+            return beta                         #Already too good, opponent avoids this
+        if stand_still > alpha:
+            alpha = stand_still                  #We don't have to take
+
+        """
+        To Implement:
+        Check if in check. If so evaluate all evasions. If no evasions, return MATE value
+        """
+
+        board = chess.chess_board
+        captured = [(o, m) for o, m in pseudo_legal_moves(chess)
+                    if board[m.row][m.col] != 0 or m.promotion]
+
+        for origin, move in order_moves(chess, captured):
+            if not make_move(chess, origin, move):
+                continue
+            try:
+                score = -self.quiescence(chess, -beta, -alpha)
+            finally:
+                undo_move(chess)
+
+            if score >= beta:
+                return beta
+            if score > alpha:
+                alpha = score
+        return alpha
+
+    def search(self, chess, max_depth, node_limit=None, time_limit=None):
+        global _deadline, _nodes, _node_limit
+        best_move, best_score = None, -math.inf
+        limit = time.perf_counter() + time_limit if time_limit else None
+        _nodes = 0
+        if node_limit is not None:
+            _node_limit = node_limit
+        #Making sure the board is properly returned to its initial state after the search
+        key_before = chess.zobrist
+        try:
+            for depth in range(1, max_depth + 1):
+                #Depth 1 runs with no deadline so we are guaranteed to come back
+                #with a legal move even on an absurdly short time limit
+                _deadline = None if depth == 1 else limit
+
+                try:
+                    move, score = self.get_best_move(chess, depth, best_move)
+                except Timeout:
+                    break
+                
+                if move is not None:
+                    best_move, best_score = move, score
+                #If mate is found, no need looking deeper
+                if score > MATE - 1000:
+                    break
+        finally:
+            _deadline = None
+
+        assert chess.zobrist == key_before, "search left the board modified"
+
+        return best_move, best_score
+
+class TTEntry:
+    __slots__ = ("key", "depth", "score", "flag", "move")
+    def __init__(self, key, depth, score, flag, move):
+        self.key, self.depth = key, depth
+        self.score, self.flag, self.move = score, flag, move
+
+EXACT, LOWER, UPPER = 0, 1, 2
+TT_SIZE = 1 << 20
+table = [None] * TT_SIZE
+
+class Transposition_Table:
+    def __init__(self):
+        self.table = [None] * TT_SIZE
+
+    def tt_probe(self, key, depth, alpha, beta, ply):
+        entry = self.table[key % TT_SIZE]
+        if entry is None or entry.key != key:
+            return None, None
+        
+        best_move = entry.move
+        if entry.depth < depth:
+            return None, best_move      #Too shallow to trust the score: move still needs to be explored
+
+        #Unadjust mate distance
+        score = entry.score
+        if score > MATE - 1000:
+            score -= ply
+        elif score < -MATE + 1000:
+            score += ply
+
+        if entry.flag == EXACT:
+            return score, best_move
+        if entry.flag == LOWER and score >= beta:
+            return score, best_move
+        if entry.flag == UPPER and score <= alpha:
+            return score, best_move
+        return None, best_move
+
+    def tt_store(self, key, depth, score, flag, move, ply):
+        #Adjust mate score
+        if score > MATE - 1000:
+            score += ply
+        elif score < -MATE + 1000:
+            score -= ply
+
+        self.table[key % TT_SIZE] = TTEntry(key, depth, score, flag, move)
+
+class Timeout(Exception):
+    pass
+
+_deadline = None
+_nodes = 0
+_node_limit = 2048
+def check_time():
+    if _deadline and _nodes % _node_limit == 0 and time.perf_counter() > _deadline:
+        raise Timeout
+
+def check_nodes():
+    global _nodes
+    _nodes += 1
+    if _nodes >= _node_limit:
+        raise Timeout
+
+===== main.py =====
+from core.board import Chess
+from ui.gui import play_game        
+
+def main() -> None:
+    chess_game = Chess()
+    play_game(chess_game)
+
+if __name__ == "__main__":
+    main()
+
+===== testing/__init__.py =====
+
+
+===== testing/final_tests.py =====
+"""
+final_tests.py -- end-to-end regression suite.
+
+perft.py checks move generation and the board invariants. This checks the
+things above that layer: the search, the transposition table, the clock,
+endgame detection, FEN notation, and the awkward edge cases.
+
+    python3 final_tests.py
+"""
+import math
+import sys
+import time
+
+from engine import search
+from core.board import Chess
+from core.constants import MATE, PIECE_VALUES
+from core.movegen import (Move, pseudo_legal_moves, legal_move_list,
+                     get_castling_rights)
+from core.notation import from_fen, to_fen
+from testing.perft import Failures, perft, roundtrip_diffs
+from core.rules import make_move, undo_move, game_result, has_legal_move
+from core.zobrist import full_hash
+from engine.evaluate import self_evaluate
+
+PASS, FAIL = [], []
+
+
+def check(name, condition, detail=""):
+    (PASS if condition else FAIL).append(name)
+    mark = "pass" if condition else "FAIL"
+    print(f"  {mark}  {name}" + (f"   {detail}" if detail else ""))
+
+
+def board_intact(chess, reference):
+    return (chess.chess_board == reference
+            and chess.zobrist == full_hash(chess)
+            and len(chess.move_order) == 0
+            and chess.white_pieces == {(r, c) for r in range(8) for c in range(8)
+                                       if chess.chess_board[r][c] > 0}
+            and chess.black_pieces == {(r, c) for r in range(8) for c in range(8)
+                                       if chess.chess_board[r][c] < 0})
+
+
+# ---------------------------------------------------------------------------
+def test_search_leaves_board_clean():
+    print("\nsearch leaves the board untouched")
+    for name, fen, depth in (
+            ("start", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -", 4),
+            ("kiwipete", "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -", 4),
+            ("promo", "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq -", 4)):
+        chess = from_fen(fen)
+        ref = [row[:] for row in chess.chess_board]
+        search.table = [None] * search.TT_SIZE
+        move, value = search.get_best_move(chess, depth)
+        check(f"{name}: board/hash/sets/stack all restored",
+              board_intact(chess, ref))
+        check(f"{name}: returned a playable move", move is not None
+              and make_move(chess, *move))
+        if chess.move_order:
+            undo_move(chess)
+
+
+def test_tt_matches_plain_search():
+    print("\ntransposition table returns the same score as a plain search")
+    real_probe = search.tt_probe
+    for name, fen in (
+            ("start", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -"),
+            ("kiwipete", "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -"),
+            ("endgame", "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - -"),
+            ("promo", "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq -")):
+        for depth in (3, 4):
+            search.table = [None] * search.TT_SIZE
+            search.tt_probe = lambda *a, **k: (None, None)
+            _, off = search.get_best_move(from_fen(fen), depth)
+            search.table = [None] * search.TT_SIZE
+            search.tt_probe = real_probe
+            _, on = search.get_best_move(from_fen(fen), depth)
+            check(f"{name} depth {depth}: {off} == {on}", off == on)
+    search.tt_probe = real_probe
+
+
+def test_time_limit():
+    print("\ntime limit is respected")
+    for limit in (1.0, 3.0, 8.0):
+        chess = Chess()
+        start = time.perf_counter()
+        move, _ = search.search(chess, 20, time_limit=limit)
+        elapsed = time.perf_counter() - start
+        check(f"limit {limit}s honoured (took {elapsed:.2f}s)",
+              move is not None and elapsed < limit * 1.35,
+              f"{elapsed / limit:.2f}x")
+
+    print("\ntime limit never returns None, however tight")
+    for limit in (0.0005, 0.005, 0.05):
+        move, _ = search.search(Chess(), 20, time_limit=limit)
+        check(f"limit {limit}s still produced a move", move is not None)
+
+
+def test_mate_and_draws():
+    print("\nendgame detection")
+    chess = from_fen("6k1/5ppp/8/8/8/8/5PPP/R5K1 w - -")
+    move, value = search.search(chess, 4, time_limit=5)
+    check("mate in 1 found", value > MATE - 1000, f"score {value}")
+    make_move(chess, *move)
+    check("game_result reports Checkmate", game_result(chess) == "Checkmate")
+
+    chess = from_fen("k7/8/1Q6/8/8/8/8/K7 b - -")
+    check("stalemate: no legal moves", not has_legal_move(chess))
+    check("game_result reports stalemate",
+          game_result(chess) == "Draw by stalemate")
+    move, _ = search.search(chess, 3, time_limit=5)
+    check("search returns None when mated/stalemated", move is None)
+
+    # 7k/5Q2/6K1 is the classic queen STALEMATE, not a mate: Qf7 does not
+    # attack h8. Use a genuine mate instead.
+    chess = from_fen("7k/5Q2/6K1/8/8/8/8/8 b - -")
+    check("queen stalemate is a draw, not a mate",
+          game_result(chess) == "Draw by stalemate")
+
+    chess = from_fen("R5k1/5ppp/8/8/8/8/8/6K1 b - -")
+    check("back-rank mate: game_result reports Checkmate",
+          game_result(chess) == "Checkmate")
+
+    chess = from_fen("7k/5Q1K/8/8/8/8/8/8 b - -")
+    check("supported queen mate: game_result reports Checkmate",
+          game_result(chess) == "Checkmate")
+
+    # Knight shuffle back to the start position three times
+    chess = Chess()
+    shuffle = [((7, 6), Move(5, 5)), ((0, 6), Move(2, 5)),
+               ((5, 5), Move(7, 6)), ((2, 5), Move(0, 6))]
+    stopped = None
+    for _ in range(3):
+        for origin, target in shuffle:
+            if not make_move(chess, origin, target):
+                stopped = chess.game
+                break
+        if stopped:
+            break
+    check("threefold repetition detected",
+          stopped == "Draw by repetition" or chess.game == "Draw by repetition",
+          str(chess.game))
+
+
+def test_move_generators_agree():
+    print("\nboth move generators agree")
+    for fen in ("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
+                "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -",
+                "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - -",
+                "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq -",
+                "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ -"):
+        chess = from_fen(fen)
+        scan = sorted((o, tuple(m)) for o, m in legal_move_list(chess))
+        sets = sorted((o, tuple(m)) for o, m in pseudo_legal_moves(chess))
+        check(f"{fen[:26]}... ({len(scan)} moves)", scan == sets)
+
+
+def test_edge_cases():
+    print("\nedge cases")
+    check("get_castling_rights(side=0) returns a list, not None",
+          isinstance(get_castling_rights(Chess(), 0), list),
+          repr(get_castling_rights(Chess(), 0)))
+
+    chess = Chess()
+    try:
+        make_move(chess, (4, 4), Move(3, 4))
+        check("moving from an empty square raises", False)
+    except ValueError:
+        check("moving from an empty square raises", True)
+
+    # A promotion move with no piece type must be rejected, not silently queened
+    chess = from_fen("8/P7/8/8/8/8/8/K6k w - -")
+    try:
+        make_move(chess, (1, 0), Move(0, 0, 0))
+        check("promotion without a piece type raises", False)
+    except ValueError:
+        check("promotion without a piece type raises", True)
+
+    # All four promotion pieces reachable, and each undoes cleanly
+    chess = from_fen("8/P7/8/8/8/8/8/K6k w - -")
+    ref = [row[:] for row in chess.chess_board]
+    ok = True
+    for piece in (2, 3, 4, 5):
+        if not make_move(chess, (1, 0), Move(0, 0, piece)):
+            ok = False
+            break
+        if chess.chess_board[0][0] != piece:
+            ok = False
+        undo_move(chess)
+        if not board_intact(chess, ref):
+            ok = False
+    check("all four promotions apply and undo cleanly", ok)
+
+    # En passant, made and unmade
+    chess = from_fen("rnbqkbnr/ppp1p1pp/8/3pPp2/8/8/PPPP1PPP/RNBQKBNR w KQkq f6")
+    ref = [row[:] for row in chess.chess_board]
+    eps = [(o, m) for o, m in pseudo_legal_moves(chess)
+           if abs(chess.chess_board[o[0]][o[1]]) == 1
+           and m.col != o[1] and chess.chess_board[m.row][m.col] == 0]
+    check("en passant capture is generated", len(eps) > 0, f"{len(eps)} found")
+    if eps:
+        make_move(chess, *eps[0])
+        captured_gone = chess.chess_board[3][5] == 0
+        undo_move(chess)
+        check("en passant removes the right pawn", captured_gone)
+        check("en passant undoes cleanly", board_intact(chess, ref))
+
+    # Castling both ways, made and unmade
+    chess = from_fen("r3k2r/8/8/8/8/8/8/R3K2R w KQkq -")
+    ref = [row[:] for row in chess.chess_board]
+    castles = [(o, m) for o, m in pseudo_legal_moves(chess)
+               if abs(chess.chess_board[o[0]][o[1]]) == 6
+               and abs(m.col - o[1]) == 2]
+    check("both castles generated", len(castles) == 2, f"{len(castles)} found")
+    ok = True
+    for origin, target in castles:
+        if not make_move(chess, origin, target):
+            ok = False
+            continue
+        undo_move(chess)
+        if not board_intact(chess, ref):
+            ok = False
+    check("castling undoes cleanly (board, hash, sets)", ok)
+
+    # Cannot castle out of, through, or into check
+    chess = from_fen("r3k2r/8/8/8/8/8/4r3/R3K2R w KQ -")
+    castles = [(o, m) for o, m in pseudo_legal_moves(chess)
+               if abs(chess.chess_board[o[0]][o[1]]) == 6
+               and abs(m.col - o[1]) == 2]
+    check("cannot castle out of check", len(castles) == 0,
+          f"{len(castles)} offered")
+
+
+def test_fen_roundtrip():
+    print("\nFEN round trip")
+
+    #Canonical FENs: all six fields, and any en passant square is one a pawn
+    #can actually use, so to_fen has to give the string back unchanged
+    canonical = (
+        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
+        "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1",
+        "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1",
+        "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 3 9",
+        "rnbqkbnr/ppp1p1pp/8/3pPp2/8/8/PPPP1PPP/RNBQKBNR w KQkq f6 0 4",
+        "8/P7/8/8/8/8/8/K6k b - - 12 37",
+        "4k3/8/8/8/8/8/8/4K3 w - - 99 150",
+    )
+    for fen in canonical:
+        got = to_fen(from_fen(fen))
+        check(f"unchanged: {fen[:30]}...", got == fen, "" if got == fen else got)
+
+    check("Chess() writes the start position", to_fen(Chess()) == canonical[0],
+          to_fen(Chess()))
+
+    #The other direction, on positions that were played rather than parsed:
+    #from_fen(to_fen(pos)) has to be the same position, field for field
+    chess = Chess()
+    for origin, target in (((6, 4), Move(4, 4)), ((1, 4), Move(3, 4)),
+                           ((7, 6), Move(5, 5)), ((0, 1), Move(2, 2)),
+                           ((7, 5), Move(4, 2)), ((1, 3), Move(3, 3)),
+                           ((4, 4), Move(3, 3))):
+        make_move(chess, origin, target)
+    diffs = roundtrip_diffs(chess)
+    check("a played position survives to_fen -> from_fen", not diffs,
+          "; ".join(diffs))
+
+    #Every node of a shallow tree, which is where the fiddly cases live:
+    #en passant appearing and expiring, castling rights being lost,
+    #promotions, and the half move clock resetting on captures
+    for name, fen, depth in (
+            ("kiwipete", "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -", 2),
+            ("en passant / promotion", "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - -", 3),
+            ("promotions and pins", "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq -", 2)):
+        failures = Failures()
+        perft(from_fen(fen), depth, check_fen=True, failures=failures)
+        check(f"{name}: round trip holds at every node to depth {depth}",
+              failures.fen_count == 0,
+              failures.samples[0] if failures.samples else "")
+
+    #Documented asymmetry: an en passant square is only stored when a capture
+    #is available, so a FEN offering one no pawn can use is rewritten as "-".
+    #Rewritten once, then stable -- to_fen output is always a fixed point
+    unusable = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"
+    once = to_fen(from_fen(unusable))
+    check("an unusable en passant square is dropped",
+          once.split()[3] == "-", once)
+    check("and dropping it is stable under further round trips",
+          to_fen(from_fen(once)) == once, to_fen(from_fen(once)))
+
+
+def test_selfplay():
+    print("\nself-play game (real gameplay path)")
+    chess = Chess()
+    problems = 0
+    moves = 0
+    for _ in range(40):
+        stack_before = len(chess.move_order)
+        move, value = search.search(chess, 5, time_limit=0.4)
+        if chess.zobrist != full_hash(chess):
+            problems += 1
+        if len(chess.move_order) != stack_before:
+            problems += 1
+        if move is None:
+            break
+        if not make_move(chess, *move):
+            problems += 1
+            break
+        moves += 1
+        if game_result(chess) is not None:
+            break
+    truth_w = {(r, c) for r in range(8) for c in range(8)
+               if chess.chess_board[r][c] > 0}
+    check(f"{moves} moves played with no problems", problems == 0)
+    check("piece sets still correct after the game",
+          chess.white_pieces == truth_w)
+    check("hash still correct after the game",
+          chess.zobrist == full_hash(chess))
+
+
+if __name__ == "__main__":
+    start = time.time()
+    test_search_leaves_board_clean()
+    test_tt_matches_plain_search()
+    test_time_limit()
+    test_mate_and_draws()
+    test_move_generators_agree()
+    test_edge_cases()
+    test_fen_roundtrip()
+    test_selfplay()
+
+    assert self_evaluate(Chess()) == 0
+    print("\n" + "=" * 62)
+    print(f"{len(PASS)} passed, {len(FAIL)} failed   ({time.time() - start:.0f}s)")
+    if FAIL:
+        for name in FAIL:
+            print(f"  FAILED: {name}")
+    print("=" * 62)
+    sys.exit(1 if FAIL else 0)
+
+===== testing/perft.py =====
+"""
+perft.py -- correctness harness for the engine.
+
+Perft ("performance test") counts the leaf nodes in the legal move tree to a
+given depth. The counts below are known-correct published values, so any
+mismatch means a move generation bug -- and the divided mode tells you exactly
+which move's subtree is wrong.
+
+Usage:
+    python3 perft.py                    # run the standard suite
+    python3 perft.py --hash             # also verify zobrist consistency
+    python3 perft.py --state            # also verify make/undo restores state
+    python3 perft.py --roundtrip        # also verify to_fen/from_fen round trip
+    python3 perft.py --all              # every check
+    python3 perft.py --divide 3         # per-root-move counts, start position
+    python3 perft.py --divide 3 --fen "<FEN>"
+    python3 perft.py --depth 5          # start position only, to depth 5
+
+Debugging a mismatch:
+    1. Run --divide at the shallowest failing depth.
+    2. Compare against a reference (any known-good engine, or an online perft
+       calculator) to find which root move has the wrong count.
+    3. Make that move, then --divide the resulting position one depth shallower.
+    4. Repeat until you reach depth 1, where the wrong move list is visible.
+"""
+
+import argparse
+import sys
+import time
+
+from core.movegen import legal_move_list, pseudo_legal_moves
+from core.rules import make_move, undo_move
+from core.zobrist import full_hash
+from core.notation import from_fen, to_fen, move_name
+
+# ---------------------------------------------------------------------------
+# State snapshot, for verifying that undo_move restores everything
+# ---------------------------------------------------------------------------
+
+def snapshot(chess):
+    return (
+        tuple(tuple(row) for row in chess.chess_board),
+        chess.side_to_move,
+        chess.white_king_pos, chess.black_king_pos,
+        chess.white_king_castle, chess.white_queen_castle,
+        chess.black_king_castle, chess.black_queen_castle,
+        tuple(sorted(chess.en_passant.items())),
+        chess.half_move_clock, chess.play, chess.full_move_count,
+        chess.game, chess.zobrist,
+        len(chess.move_order),
+        tuple(sorted(chess.position_counts.items())),
+        tuple(sorted(chess.white_pieces)),
+        tuple(sorted(chess.black_pieces)),
+    )
+
+
+SNAPSHOT_FIELDS = (
+    "chess_board", "side_to_move", "white_king_pos", "black_king_pos",
+    "white_king_castle", "white_queen_castle", "black_king_castle",
+    "black_queen_castle", "en_passant", "half_move_clock", "play",
+    "full_move_count", "game", "zobrist", "len(move_order)", "position_counts",
+    "white_pieces", "black_pieces",
+)
+
+
+def describe_diff(before, after, fields=SNAPSHOT_FIELDS):
+    out = []
+    for name, a, b in zip(fields, before, after):
+        if a != b:
+            out.append(f"{name}: {a!r} -> {b!r}")
+    return out
+
+
+# ---------------------------------------------------------------------------
+# FEN round trip, for verifying to_fen against from_fen
+# ---------------------------------------------------------------------------
+
+#Everything a FEN is supposed to carry, plus the state derived from it.
+#Deliberately narrower than snapshot(): move_order, position_counts and game
+#are history, and no FEN could carry them.
+def fen_state(chess):
+    return (
+        tuple(tuple(row) for row in chess.chess_board),
+        chess.side_to_move,
+        chess.white_king_pos, chess.black_king_pos,
+        chess.white_king_castle, chess.white_queen_castle,
+        chess.black_king_castle, chess.black_queen_castle,
+        tuple(sorted(chess.en_passant.items())),
+        chess.half_move_clock, chess.play, chess.full_move_count,
+        chess.zobrist, chess.phase,
+        tuple(sorted(chess.white_pieces)),
+        tuple(sorted(chess.black_pieces)),
+    )
+
+
+FEN_FIELDS = (
+    "chess_board", "side_to_move", "white_king_pos", "black_king_pos",
+    "white_king_castle", "white_queen_castle", "black_king_castle",
+    "black_queen_castle", "en_passant", "half_move_clock", "play",
+    "full_move_count", "zobrist", "phase", "white_pieces", "black_pieces",
+)
+
+
+def roundtrip_diffs(chess):
+    """
+    Empty when this position survives being written out and read back.
+
+    Checks both directions at once: from_fen(to_fen(pos)) has to be the same
+    position, and writing that rebuilt position has to give back the same
+    string.
+    """
+    fen = to_fen(chess)
+    rebuilt = from_fen(fen)
+    diffs = describe_diff(fen_state(chess), fen_state(rebuilt), FEN_FIELDS)
+    again = to_fen(rebuilt)
+    if again != fen:
+        diffs.append(f"to_fen: {fen!r} -> from_fen -> to_fen -> {again!r}")
+    return diffs
+
+
+# ---------------------------------------------------------------------------
+# Perft
+# ---------------------------------------------------------------------------
+
+class Failures:
+    """Collects the first few problems so output stays readable."""
+
+    def __init__(self, limit=5):
+        self.limit = limit
+        self.hash_count = 0
+        self.state_count = 0
+        self.sets_count = 0
+        self.fen_count = 0
+        self.samples = []
+
+    def hash_bad(self, chess, path):
+        self.hash_count += 1
+        if len(self.samples) < self.limit:
+            self.samples.append(
+                f"  HASH after {' '.join(path)}\n"
+                f"    incremental = {chess.zobrist}\n"
+                f"    full_hash   = {full_hash(chess)}"
+            )
+
+    def sets_bad(self, chess, path, detail):
+        self.sets_count += 1
+        if len(self.samples) < self.limit:
+            self.samples.append(
+                f"  PIECE SETS after {' '.join(path)}\n      {detail}")
+
+    def fen_bad(self, path, diffs):
+        self.fen_count += 1
+        if len(self.samples) < self.limit:
+            joined = "\n      ".join(diffs)
+            self.samples.append(
+                f"  FEN round trip changed the position at "
+                f"{' '.join(path) or '(root)'}\n"
+                f"      {joined}"
+            )
+
+    def state_bad(self, path, diffs):
+        self.state_count += 1
+        if len(self.samples) < self.limit:
+            joined = "\n      ".join(diffs)
+            self.samples.append(
+                f"  UNDO did not restore state after {' '.join(path)}\n"
+                f"      {joined}"
+            )
+
+
+def perft(chess, depth, check_hash=False, check_state=False,
+          check_sets=False, check_fen=False, failures=None, path=None):
+    if depth == 0:
+        return 1
+    if path is None:
+        path = []
+
+    total = 0
+    for origin, move in legal_move_list(chess):
+        before = snapshot(chess) if check_state else None
+
+        if not make_move(chess, origin, move):
+            continue
+
+        path.append(move_name(origin, move))
+
+        # Perft counts legal moves, not draw claims. Clearing this keeps a
+        # threefold repetition deep in the tree from blocking further moves.
+        # undo_move restores the saved value, so this is safe.
+        chess.game = None
+
+        if check_hash and chess.zobrist != full_hash(chess):
+            failures.hash_bad(chess, path)
+
+        if check_fen:
+            diffs = roundtrip_diffs(chess)
+            if diffs:
+                failures.fen_bad(path, diffs)
+
+        if check_sets:
+            board = chess.chess_board
+            true_w = {(r, c) for r in range(8) for c in range(8)
+                      if board[r][c] > 0}
+            true_b = {(r, c) for r in range(8) for c in range(8)
+                      if board[r][c] < 0}
+            if chess.white_pieces != true_w or chess.black_pieces != true_b:
+                failures.sets_bad(chess, path,
+                    f"white missing {sorted(true_w - chess.white_pieces)} "
+                    f"stale {sorted(chess.white_pieces - true_w)}; "
+                    f"black missing {sorted(true_b - chess.black_pieces)} "
+                    f"stale {sorted(chess.black_pieces - true_b)}")
+            scan = sorted((o, tuple(m)) for o, m in legal_move_list(chess))
+            sets = sorted((o, tuple(m)) for o, m in pseudo_legal_moves(chess))
+            if scan != sets:
+                failures.sets_bad(chess, path,
+                    f"legal_move_list has {len(scan)} moves but "
+                    f"pseudo_legal_moves has {len(sets)}")
+
+        total += perft(chess, depth - 1, check_hash, check_state,
+                       check_sets, check_fen, failures, path)
+        undo_move(chess)
+        path.pop()
+
+        if check_state:
+            diffs = describe_diff(before, snapshot(chess))
+            if diffs:
+                failures.state_bad(path + [move_name(origin, move)], diffs)
+
+    return total
+
+
+def divide(chess, depth):
+    """Node count per root move. The tool for locating a mismatch."""
+    results = []
+    for origin, move in legal_move_list(chess):
+        if not make_move(chess, origin, move):
+            continue
+        chess.game = None
+        count = perft(chess, depth - 1)
+        undo_move(chess)
+        results.append((move_name(origin, move), count))
+    results.sort()
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Test suite: the standard published positions
+# ---------------------------------------------------------------------------
+
+START = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+
+SUITE = [
+    ("Start position", START,
+     {1: 20, 2: 400, 3: 8902, 4: 197281, 5: 4865609}),
+
+    ("Kiwipete (castling, pins)",
+     "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -",
+     {1: 48, 2: 2039, 3: 97862, 4: 4085603}),
+
+    ("Endgame (en passant, promotion)",
+     "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - -",
+     {1: 14, 2: 191, 3: 2812, 4: 43238, 5: 674624}),
+
+    ("Promotions and pins",
+     "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq -",
+     {1: 6, 2: 264, 3: 9467, 4: 422333}),
+
+    ("Castling edge cases",
+     "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ -",
+     {1: 44, 2: 1486, 3: 62379, 4: 2103487}),
+
+    ("Dense middlegame",
+     "r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - -",
+     {1: 46, 2: 2079, 3: 89890, 4: 3894594}),
+]
+
+
+def run_suite(max_depth, check_hash, check_state, check_sets, check_fen,
+              time_budget):
+    passed = failed = skipped = 0
+    all_failures = Failures()
+
+    for name, fen, expected in SUITE:
+        print(f"\n{name}")
+        print(f"  {fen}")
+        #The per-node check only sees positions a move led to, so the root
+        #of each position gets checked here
+        if check_fen:
+            diffs = roundtrip_diffs(from_fen(fen))
+            if diffs:
+                all_failures.fen_bad([], diffs)
+        for depth in sorted(expected):
+            if depth > max_depth:
+                skipped += 1
+                continue
+            chess = from_fen(fen)
+            start = time.time()
+            got = perft(chess, depth, check_hash, check_state, check_sets,
+                        check_fen, all_failures)
+            elapsed = time.time() - start
+            want = expected[depth]
+
+            if got == want:
+                passed += 1
+                mark = "pass"
+                note = ""
+            else:
+                failed += 1
+                mark = "FAIL"
+                note = f"   off by {got - want:+d}"
+
+            nps = got / elapsed if elapsed > 0 else 0
+            print(f"    {mark}  depth {depth}: {got:>10,} "
+                  f"(want {want:>10,}) [{elapsed:6.2f}s, {nps:>9,.0f} nps]{note}")
+
+            if elapsed > time_budget:
+                print(f"    ...stopping this position, "
+                      f"depth {depth} took over {time_budget}s")
+                break
+
+    print("\n" + "=" * 66)
+    print(f"move generation: {passed} passed, {failed} failed, {skipped} skipped")
+
+    if check_hash:
+        if all_failures.hash_count:
+            print(f"zobrist:         {all_failures.hash_count:,} nodes where the "
+                  f"incremental hash != full_hash")
+        else:
+            print("zobrist:         consistent at every node")
+
+    if check_state:
+        if all_failures.state_count:
+            print(f"make/undo:       {all_failures.state_count:,} nodes where undo "
+                  f"did not restore state")
+        else:
+            print("make/undo:       state fully restored at every node")
+
+    if check_sets:
+        if all_failures.sets_count:
+            print(f"piece sets:      {all_failures.sets_count:,} nodes where the "
+                  f"sets disagreed with the board")
+        else:
+            print("piece sets:      match the board at every node")
+
+    if check_fen:
+        if all_failures.fen_count:
+            print(f"fen round trip:  {all_failures.fen_count:,} positions that "
+                  f"changed when written out and read back")
+        else:
+            print("fen round trip:  to_fen/from_fen agreed at every node")
+
+    if all_failures.samples:
+        print("\nfirst few problems:")
+        for sample in all_failures.samples:
+            print(sample)
+
+    print("=" * 66)
+    return (failed == 0 and not all_failures.hash_count
+            and not all_failures.state_count and not all_failures.sets_count
+            and not all_failures.fen_count)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Perft harness")
+    parser.add_argument("--depth", type=int, default=4,
+                        help="max depth to attempt per position (default 4)")
+    parser.add_argument("--fen", default=START, help="position for --divide")
+    parser.add_argument("--divide", type=int, metavar="D",
+                        help="print per-root-move counts at depth D")
+    parser.add_argument("--hash", action="store_true",
+                        help="verify incremental zobrist against full_hash")
+    parser.add_argument("--state", action="store_true",
+                        help="verify undo_move restores every field")
+    parser.add_argument("--sets", action="store_true",
+                        help="verify piece sets match the board")
+    parser.add_argument("--roundtrip", action="store_true",
+                        help="verify to_fen/from_fen round trip at every node")
+    parser.add_argument("--all", action="store_true",
+                        help="same as --hash --state --sets --roundtrip")
+    parser.add_argument("--budget", type=float, default=30.0,
+                        help="seconds before skipping deeper depths (default 30)")
+    args = parser.parse_args()
+
+    check_hash = args.hash or args.all
+    check_state = args.state or args.all
+    check_sets = args.sets or args.all
+    check_fen = args.roundtrip or args.all
+
+    if args.divide:
+        chess = from_fen(args.fen)
+        print(f"divide depth {args.divide}")
+        print(f"  {args.fen}\n")
+        results = divide(chess, args.divide)
+        for name, count in results:
+            print(f"  {name:6} {count:>10,}")
+        print(f"\n  {len(results)} moves, {sum(c for _, c in results):,} nodes")
+        return 0
+
+    ok = run_suite(args.depth, check_hash, check_state, check_sets, check_fen,
+                   args.budget)
+    return 0 if ok else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())   
+
+===== ui/__init__.py =====
+
+
+===== ui/gui.py =====
+import tkinter as tk
+from pathlib import Path
+from PIL import Image, ImageTk
+from core.constants import PIECE_NAMES, MATE
+from core.movegen import *
+from core.rules import *
+from engine.search import *
+
+PIECE_ICON_DIR = Path(__file__).resolve().parent.parent / "assets" / "piece_icons"
+
+PIECE_SCALE = 0.9
+LIGHT_SQUARE = "#ebd6b0"
+DARK_SQUARE = "#a97e5c"
+PICKED_UP_SQUARE = "#d8c65a"
+DEPTH = 8
+TIME_LIMIT = 8.0
+#How far the pointer has to move before a press counts as a drag instead of a click
+DRAG_THRESHOLD = 4
+
+STATE = {
+    "chess": None,      #Chess object holding the matrix
+    "cells": {},        #(row, col) in the square frame
+    "pieces": {},       #(row, col) canvas holding the piece
+    "selected": None,   #(row, col) of the piece that is currently picked up 
+    "legal_moves": {},  #(row, col) -> list of Moves that originate from location
+    "origin": None,     #(row, col) where the piece originally started
+    "press": None,      #Initial coords of the press, differentiating a click from a drag
+    "floater": None     #Labl that follows the cursor while dragging
+}
+#Keeps frame object square sized (Only triggered on main window size changing)
+def make_square(event, target_frame, window):
+    #Ensures the event came from the window widget
+    if event.widget == window:
+        #Finds smallest dimension of the window
+        size = min(window.winfo_width(), window.winfo_height())
+        target_frame.config(width= size, height= size)
+
+def fit_image(event, canvas):
+
+    #Find largest icon size that still fits into cell
+    size = max(1, int(min(event.width, event.height) * PIECE_SCALE))
+
+    #Only rebuild image if the size changed
+    if size != canvas.piece_size:
+        canvas.piece_size = size
+        resized = canvas.pil_image.resize((size, size), Image.LANCZOS)
+        #Store the PhotoImage so that Python doesn't dump it
+
+        canvas.image = ImageTk.PhotoImage(resized)
+        canvas.itemconfig(canvas.piece_item, image= canvas.image)
+
+    #Recenter's the icon in the cell
+    canvas.coords(canvas.piece_item, event.width // 2, event.height // 2)
+
+#Returns the color a square should be when nothing is picked up
+def square_color(ROW, COL):
+    return LIGHT_SQUARE if (ROW + COL)%2 == 0 else DARK_SQUARE
+
+#Which square a set of screen coordinates falls on, or None if it is off the board
+#This works off root coordinates on purpose, winfo_containing would just return the
+#floating drag image because that sits directly under the pointer
+def identify_cell(x_root, y_root):
+    for position, cell in STATE["cells"].items():
+        left = cell.winfo_rootx()
+        top = cell.winfo_rooty()
+        if left <= x_root < left + cell.winfo_width():
+            if top <= y_root < top + cell.winfo_height():
+                return position
+
+    return None
+
+#Highlights a square either as picked up or back to its normal color
+def highlight(position, picked_up):
+    if position not in STATE["cells"]:
+        return
+    color = PICKED_UP_SQUARE if picked_up else square_color(*position)
+    STATE["cells"][position].config(bg=color)
+    piece = STATE["pieces"].get(position)
+    if piece is not None:
+        piece.config(bg= color)
+
+#Adds chosen position to selected state and highlights the position
+def pick_up(position):
+    STATE["selected"] = position
+    STATE["legal_moves"] = moves_by_square(position)
+    highlight(position, True)
+
+#Puts whatever is picked up back down, which is also how a piece "returns"
+#after an invalid click or drop
+def put_down():
+    if STATE["selected"] is not None:
+        highlight(STATE["selected"], False)
+        STATE["selected"] = None
+        STATE["legal_moves"] = {}
+
+#A target is only usable if it is on the board, is not the square the piece
+#started on, and is not occupied by one of your own pieces
+#Note this does not consider king move restrictions
+def is_legal_target(origin, target):
+    if target is None or target == origin:
+        return False
+    
+    return target in STATE["legal_moves"]
+
+#Removes piece at given position
+#If a piece existed there, destroys said piece
+def clear_square(position):
+    piece = STATE["pieces"].pop(position, None)
+    if piece is not None:
+        piece.destroy()
+
+#Relaods board from chess.chess_board
+#Castling and En passant affect move that just the origin and target squares
+#So patching individual squares desync the window and the board
+def refresh_board():
+    for position in list(STATE["pieces"]):
+        clear_square(position)
+
+    matrix = STATE["chess"].chess_board
+    for r, row in enumerate(matrix):
+        for c, square in enumerate(row):
+            if square != 0:
+                place_piece(r, c, square, STATE["cells"][(r, c)])
+        
+def move_piece(origin, target):
+    candidates = STATE["legal_moves"].get(target, [])
+    put_down()
+    if not candidates:
+        return
+
+    if len(candidates) == 1:
+        move = candidates[0]
+    else:
+        #More than one move on the same square means promotion
+        wanted = ask_promotion()
+        if wanted is None:
+            return
+        move = next(m for m in candidates if m.promotion == wanted)
+
+    #If move is illegal (leaves king in check) render it invalid
+    if not make_move(STATE["chess"], origin, move):
+        print("Illegal Move", origin, "->", target)
+        refresh_board()
+        return
+
+    #Render AFTER board has been updated
+    refresh_board()
+
+#Groups this piece's legal moves by destination square, because four moves can
+#share a square when a pawn promotes and a click only identifies the square.
+#available_moves is pseudo-legal for everything except the king, so trying each
+#move is also what makes the highlighting honest for pinned pieces.
+def moves_by_square(position):
+    matrix = STATE["chess"]
+    table = {}
+    for move in available_moves(matrix, *position):
+        if make_move(matrix, position, move):
+            undo_move(matrix)
+            table.setdefault((move.row, move.col), []).append(move)
+    return table
+
+#Handles plain clicks, on a piece or empty square
+def on_square_click(ROW, COL):
+    matrix = STATE["chess"].chess_board
+    selected = STATE["selected"]
+    
+    #If nothing is picked up yet, pick up the piece on this square
+    #A destination square is empty or holds an enemy, so testing it up front
+    #blocks every move you could possibly make.
+    if selected is None:
+        if side_of(matrix[ROW][COL]) == STATE["chess"].side_to_move:
+                pick_up((ROW, COL))
+        return
+
+    #Clicking the same piece puts it down
+    if selected == (ROW, COL):
+        put_down()
+        return
+
+    if is_legal_target(selected, (ROW, COL)):
+        move_piece(selected, (ROW, COL))
+    else:
+        #Invalid square so the piece goes back to where it was
+        #Clicking one of your own pieces picks up that piece instead
+        put_down()
+        if side_of(matrix[ROW][COL]) == STATE["chess"].side_to_move:
+            pick_up((ROW, COL))
+
+#Clicking anywhere that is not a square cancels the pick up.
+#Bound on the toplevel, which sits in every child widget's bindtags, so this
+#runs after the square's own handler has already had its turn.
+def on_window_click(event):
+    if identify_cell(event.x_root, event.y_root) is None:
+        put_down()
+
+def on_press(event, ROW, COL):
+    STATE["origin"] = (ROW, COL)
+    STATE["press"] = (event.x_root, event.y_root)
+
+def on_motion(event):
+    origin = STATE["origin"]
+    if origin is None:
+        return
+    
+    #Wait until the pointer has actually moved before starting a drag,
+    #otherwise every click would flicker a floating image
+    if STATE["floater"] is None:
+        start_x, start_y = STATE["press"]
+        if abs(event.x_root - start_x) < DRAG_THRESHOLD:
+            if abs(event.y_root - start_y) < DRAG_THRESHOLD:
+                return
+        start_drag(origin)
+
+        if STATE["floater"] is None:
+            return
+    move_floater(event.x_root, event.y_root)
+
+def on_release(event):
+    origin = STATE["origin"]
+    STATE["origin"] = None
+    if origin is None:
+        return
+
+    #If the cursor wasn't dragged and only was a click
+    if STATE["floater"] is None:
+        on_square_click(*origin)
+        return
+
+    target = identify_cell(event.x_root, event.y_root)
+    end_drag()
+
+    #An invalid drop leaves the matrix alone, so unhiding the piece in end_drag
+    #is what sends it back to the square it came from
+    if is_legal_target(origin, target):
+        move_piece(origin, target)
+    else:
+        put_down()
+ 
+def start_drag(origin):
+    matrix = STATE["chess"].chess_board
+
+    #Checks if piece exists
+    piece = STATE["pieces"].get(origin)
+    if piece is None:
+        return
+    #Clears any previous click based pick up and starts a fresh one
+    put_down()
+    row, col = origin
+    if side_of(matrix[row][col]) != STATE["chess"].side_to_move:
+        return
+    pick_up(origin)
+
+    #Hides the real piece so it is not drawn in two places at once
+    piece.itemconfig(piece.piece_item, state="hidden")
+
+    #A canvas item cannot be dragged outside its own canvas, so creates
+    #a new label which follows the cursor
+    top = piece.winfo_toplevel()
+    floater = tk.Label(top, image= piece.image, bd= 0, highlightthickness= 0, bg= PICKED_UP_SQUARE)
+    floater.image = piece.image
+    floater.lift()
+    STATE["floater"] = floater
+
+def move_floater(x_root, y_root):
+    floater = STATE["floater"]
+    top = floater.winfo_toplevel()
+
+    #place() wants coordinates relative to the toplevel, and anchor keeps the
+    #icon centred on the pointer
+    floater.place(x= x_root - top.winfo_rootx(), y= y_root - top.winfo_rooty(), anchor="center")
+
+def end_drag():
+    floater = STATE["floater"]
+    STATE["floater"] = None
+
+    if floater is not None:
+        floater.destroy()
+
+    #Shows the real piece again where ever it ends up
+    piece = STATE["pieces"].get(STATE["selected"])
+    if piece is not None:
+        piece.itemconfig(piece.piece_item, state="normal")
+
+def ask_promotion():
+    parent = STATE["cells"][(0, 0)].winfo_toplevel()
+    top = tk.Toplevel(parent)
+    top.title("Promote to")
+    top.resizable(False, False)
+    top.transient(parent)
+    top.grab_set()
+
+    chosen = {"piece": None}
+
+    def pick(piece_type):
+        chosen["piece"] = piece_type
+        top.destroy()
+
+    for column, piece_type in enumerate(PROMOTION_PIECES):
+        tk.Button(top, text=PIECE_NAMES[piece_type].capitalize(), width=8,
+                  command=lambda p=piece_type: pick(p)).grid(row=0, column=column, padx=4, pady= 8)
+
+    top.wait_window()
+    return chosen["piece"]
+
+def place_piece(ROW, COL, piece, cell):
+
+    piece_name = PIECE_NAMES[abs(piece)]
+    color = "white" if piece > 0 else "black"
+    
+    image_path = PIECE_ICON_DIR / (color + "_" + piece_name + ".png")
+
+    #Place canvas inside the proper cell and grid it to have it fill the cell
+    place_canvas = tk.Canvas(cell, bg= square_color(ROW, COL), highlightthickness=0)
+    place_canvas.grid(row=0, column=0, sticky='nsew')
+
+
+    place_canvas.pil_image = Image.open(image_path).convert('RGBA')
+    place_canvas.piece_size = 0
+    place_canvas.image = ImageTk.PhotoImage(place_canvas.pil_image)
+
+    place_canvas.piece_item = place_canvas.create_image(0, 0, image= place_canvas.image)
+
+    place_canvas.bind("<Configure>", lambda event: fit_image(event, place_canvas))
+
+    #Press, motion and release are split so the same gesture can serve both a
+    #click to pick up and a drag. Tk grabs the pointer on press, so motion and
+    #release keep firing on this canvas even once the cursor has left it.
+    place_canvas.bind("<ButtonPress-1>", lambda event: on_press(event, ROW, COL))
+    place_canvas.bind("<B1-Motion>", on_motion)
+    place_canvas.bind("<ButtonRelease-1>", on_release)
+
+    STATE["pieces"][(ROW, COL)] = place_canvas
+
+#Initiates Chess Board
+def initiate_board(square_board_frame, chess_matrix) -> None:
+
+    SQUARE_SIZE = 60
+
+    #Resize rows and columns depending on window size
+    for n in range(8):
+            square_board_frame.grid_rowconfigure(n, weight= 1)
+            square_board_frame.grid_columnconfigure(n, weight= 1)
+
+    STATE["chess"] = chess_matrix
+    #Creates squares and place pieces
+    for r, row in enumerate(chess_matrix.chess_board):
+        for c, square in enumerate(row):
+            #Creates a frame and places it in the grid within the main frame
+            cell = tk.Frame(square_board_frame, width = SQUARE_SIZE, height= SQUARE_SIZE, bg=square_color(r, c))
+            cell.grid(row= r, column= c, sticky="nsew")
+
+            #Lets the piece canvas stretch to fill the whole square
+            cell.grid_rowconfigure(0, weight= 1)
+            cell.grid_columnconfigure(0, weight= 1)
+
+            #Stops child widgets from changing the frame size
+            cell.grid_propagate(False)
+
+            #Empty squares need to be clickable so that pieces can be placed on them
+            cell.bind("<Button-1>", lambda event, ROW=r, COL=c: on_square_click(ROW, COL))
+
+            STATE["cells"][(r, c)] = cell
+            if square != 0:
+                place_piece(r, c, square, cell)
+
+def cpu_move(engine):
+    move, value = engine.search(STATE["chess"], DEPTH, time_limit=TIME_LIMIT)
+    if move is None:
+        print("game over:", game_result(STATE["chess"]) or "no legal moves" )
+        return
+    make_move(STATE["chess"], *move)
+    refresh_board()
+
+    if value > MATE - 1000:
+        print("cpu played", move, "--mate found")
+    else:
+        print("cpu played", move, "value", round(value, 2))
+
+def play_game(chess):
+    #Initialize Window
+    window = tk.Tk()
+    window.title('Chess Board')
+    window.geometry("480x480")
+
+    #Sets up central frame which will be resized in order to maintain square boardsize
+    window.rowconfigure(0, weight=1)
+    window.columnconfigure(0, weight=1)
+    square_board_canvas = tk.Canvas(window, width=480, height=480)
+    square_board_canvas.grid(row= 0, column= 0)
+
+    #Stops child widgets from changing frame size
+    square_board_canvas.grid_propagate(False)
+
+    initiate_board(square_board_canvas, chess)
+
+    #Creates on event of when window size changes
+    #On such an event the board size is changed to create a square
+    window.bind("<Configure>", lambda event: make_square(event, square_board_canvas, window))
+
+    #Catches clicks that land outside the board
+    window.bind("<Button-1>", on_window_click)
+    engine = alpha_beta_engine()
+
+    window.bind("<space>", lambda event: cpu_move(engine))
+    
+    window.mainloop()

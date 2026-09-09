@@ -1,4 +1,4 @@
-from core.constants import PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING, UCI_PROMOTION, ROW_CODE
+from core.constants import PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING, UCI_PROMOTION, COLUMN_CODE
 from core.zobrist import full_hash
 from core.board import Chess
 from core.movegen import Move
@@ -168,10 +168,10 @@ def to_fen(chess):
     ))
 
 def parse_uci_move(uci):
-    from_row = ROW_CODE[uci[0]]
-    from_col = int(uci[1])
-    to_row = ROW_CODE[uci[2]]
-    to_col = int(uci[3])
+    from_col = COLUMN_CODE[uci[0]]
+    from_row = 8 - int(uci[1])
+    to_col = COLUMN_CODE[uci[2]]
+    to_row = 8 - int(uci[3])
     promotion = 0
     if len(uci) == 5:
         promotion = UCI_PROMOTION[uci[4]]
