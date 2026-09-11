@@ -15,6 +15,3 @@ env/
 
 # Secrets
 .env
-
-#Side projects (I don't know why they are here)
-Nature-of-Code/
