@@ -4,5 +4,8 @@
 			"path": "."
 		}
 	],
-	"settings": {}
+	"settings": {  
+		"pylint.enabled": false,
+  		"mypy-type-checker.enabled": false
+	}
 }

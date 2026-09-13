@@ -73,3 +73,4 @@ class Chess:
     def count_phase(self):
         return sum(PHASE_VALUES[abs(self.chess_board[r][c])]
                    for r, c in self.white_pieces | self.black_pieces)
+
