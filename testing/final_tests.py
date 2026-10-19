@@ -261,9 +261,9 @@ def test_insufficient_material():
         ("K v KN", "8/8/4k3/8/8/4K3/8/5n2 w - -", True),
         ("K v KB", "8/8/4k3/8/8/4K3/8/5b2 w - -", True),
         ("KN v K", "8/8/4k3/8/8/4K3/8/5N2 w - -", True),
-        #f1 is light, d5 is light: same colour, so drawn
-        ("KB v KB same colour", "8/8/4k3/3b4/8/4K3/8/5B2 w - -", True),
-        #f1 is light, c5 is dark: opposite colours, so not drawn
+        #f1 is light, d5 is light: same color, so drawn
+        ("KB v KB same color", "8/8/4k3/3b4/8/4K3/8/5B2 w - -", True),
+        #f1 is light, c5 is dark: opposite colors, so not drawn
         ("KB v KB opposite", "8/8/4k3/2b5/8/4K3/8/5B2 w - -", False),
         ("K v KP", "8/8/4k3/8/8/4K3/8/5p2 w - -", False),
         ("K v KR", "8/8/4k3/8/8/4K3/8/5r2 w - -", False),
@@ -574,16 +574,16 @@ def test_arena():
     check("moves were recorded", len(result.moves) == result.plies,
           f"{len(result.moves)} moves, {result.plies} plies")
     check("the record replays", _replays(result), result.record()[:60])
-    check("score_for flips with colour",
+    check("score_for flips with color",
           result.score_for("strong") == 1.0 and result.score_for("weak") == 0.0)
 
-    #Colours actually swap, and a paired match is symmetric for identical
+    #colors actually swap, and a paired match is symmetric for identical
     #players, which is the property that makes the swap worth doing
     results = list(play_match(SearchPlayer(3, nodes=1500, name="A"),
                               SearchPlayer(3, nodes=1500, name="B"),
                               games=4, adjudicator=Adjudicator(ply_limit=80)))
     whites = [r.white_name for r in results]
-    check("colours alternate every game", whites == ["A", "B", "A", "B"],
+    check("colors alternate every game", whites == ["A", "B", "A", "B"],
           str(whites))
     summary = aggregate(results, "A", "B")
     check("identical players score 0.500", summary["score"] == 0.5,
@@ -591,7 +591,7 @@ def test_arena():
     check("aggregate counts every game",
           summary["games"] == 4
           and summary["wins"] + summary["draws"] + summary["losses"] == 4)
-    check("aggregate splits by colour",
+    check("aggregate splits by color",
           len(summary["as_white"]) == 2 and len(summary["as_black"]) == 2)
 
     #An illegal move is a bug report, not a defeat

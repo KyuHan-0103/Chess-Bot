@@ -8,7 +8,7 @@ from core.zobrist import *
 Making and unmaking moves
 ===========================================================================
 """
-def make_move(chess, origin, target):
+def make_move(chess, origin : tuple, target : Move):
     """
     Apply a move to the board. Returns true if it is legal false if not
 
