@@ -33,7 +33,7 @@ _EVAL = re.compile(r"\[%eval\s*(#?)([+-]?\d+(?:\.\d+)?)")
 def san_text_prep_with_eval(source: str) -> list[tuple[str, float | None]]:
     """Every main-line move in order, paired with the eval from the comment
     after it, or None if there's no [%eval] there.
-
+    convertes eval to be from the mover's perspective
     '1. e4 { [%eval 0.17] } 1... e5 2. Nf3 { [%eval 0.2] }'
         -> [('e4', 17), ('e5', None), ('Nf3', 20)]
     """
