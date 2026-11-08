@@ -30,7 +30,7 @@ _TOKEN = re.compile(r"""
 _EVAL = re.compile(r"\[%eval\s*(#?)([+-]?\d+(?:\.\d+)?)")
 
 
-def san_text_prep_with_eval(source: str) -> list[tuple[str, float | None]]:
+def san_text_prep_with_eval(source: str) -> list[tuple[str, int | None]]:
     """Every main-line move in order, paired with the eval from the comment
     after it, or None if there's no [%eval] there.
     convertes eval to be from the mover's perspective
@@ -70,7 +70,7 @@ def san_text_prep_with_eval(source: str) -> list[tuple[str, float | None]]:
         raise ValueError("unclosed '(' in movetext")
     return pairs
 
-def eval_to_number(mate_flag : str, number : str, mover : int | None = None) -> float:
+def eval_to_number(mate_flag : str, number : str, mover : int | None = None) -> int:
     """Centipawns from White's side: '-0.27' -> -27, '#3' -> MATE - 3, '#-3' -> -(MATE - 3)
 
     mover is +1 if White made the move this eval follows, -1 if Black. Only '#0'

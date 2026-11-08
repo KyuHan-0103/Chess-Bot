@@ -100,7 +100,7 @@ def make_move(chess, origin : tuple, target : Move):
         return False
     
     """-----------------------Draw detection, only for moves that actually saved-----------------------"""   
-    if chess.position_counts[key] >= 3:
+    if chess.force_threefold_draw and chess.position_counts[key] >= 3:
         chess.game = "Draw by repetition"
     update_fifty_move_rule(chess, moving_piece, captured_piece)
     return True

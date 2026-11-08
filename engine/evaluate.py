@@ -43,4 +43,12 @@ def self_evaluate(chess):
     #Everything above is from white's point of view
     return score * chess.side_to_move
 
-
+#Converts board to a list of indices for my network to make use of
+def indexer(chess):
+    board = chess.chess_board
+    res = []
+    for white_piece, black_piece in zip(chess.white_pieces, chess.black_pieces):
+        white_square = (white_piece[0] * 8) + white_piece[1]
+        black_square = (black_square[0] * 8) + black_piece[1]
+        res.append((board[white_piece[0]][white_piece[1]] + 6) * 64 + white_square)
+        res.append((board[black_piece[0]][black_piece[1]] + 6) * 64 + black_square)

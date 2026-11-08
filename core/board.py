@@ -3,7 +3,7 @@ from core.zobrist import *
 from core.constants import *
 
 class Chess:
-    def __init__(self):
+    def __init__(self, force_threefold_draw : bool = True):
         self.chess_board = [
             [-4, -2, -3, -5, -6, -3, -2, -4],
             [-1, -1, -1, -1, -1, -1, -1, -1],
@@ -64,7 +64,8 @@ class Chess:
                              if self.chess_board[r][c] < 0}
 
         self.phase = self.count_phase()
-
+        self.force_threefold_draw = force_threefold_draw
+        
     #Derived from the board for the same reason the piece sets and the zobrist
     #hash are. Hardcoding 6400 is only right for the starting array and
     #silently wrong for any position built some other way, so anything that
