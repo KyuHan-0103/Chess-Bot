@@ -1,54 +1,87 @@
+from abc import ABC, abstractmethod
+import torch
+
 from core.constants import *
 from engine.psqt import *
+from core.board import Chess
+from network.base_network import Net
 
-def self_evaluate(chess):
-    """
-    Material plus placement, from the side-to-move POV.
+class Evaluator(ABC):
 
-    No PIECE_VALUES here: TABLE already has the material folded in, so adding
-    them again would count every piece twice.
+    @abstractmethod
+    def self_evaluate(chess : Chess):
+        pass
 
-    The two totals stay separate integers through the loop and blend once on
-    the way out. A weighted sum is linear:
+class HandEvaluator(Evaluator):
+    def __init__(self):
+        return
+    
+    def self_evaluate(chess):
+        """
+        Material plus placement, from the side-to-move POV.
 
-        sum(w * mid + (1 - w) * end)  ==  w * sum(mid) + (1 - w) * sum(end)
+        No PIECE_VALUES here: TABLE already has the material folded in, so adding
+        them again would count every piece twice.
 
-    so this is two float multiplies for the whole board instead of two per
-    piece, and the loop itself never touches a float.
-    """
-    board = chess.chess_board
-    mid_table = TABLE[MIDGAME]
-    end_table = TABLE[ENDGAME]
+        The two totals stay separate integers through the loop and blend once on
+        the way out. A weighted sum is linear:
 
-    middle = end = 0
+            sum(w * mid + (1 - w) * end)  ==  w * sum(mid) + (1 - w) * sum(end)
 
-    #The table already knows which row a black piece reads, so both loops look
-    #the same. Only the sign differs: my pieces count for me, yours against me.
-    for row, col in chess.white_pieces:
-        piece = board[row][col]
-        middle += mid_table[piece][row][col]
-        end += end_table[piece][row][col]
+        so this is two float multiplies for the whole board instead of two per
+        piece, and the loop itself never touches a float.
+        """
+        board = chess.chess_board
+        mid_table = TABLE[MIDGAME]
+        end_table = TABLE[ENDGAME]
 
-    for row, col in chess.black_pieces:
-        piece = board[row][col]
-        middle -= mid_table[piece][row][col]
-        end -= end_table[piece][row][col]
-            
-    #Clamped because a promotion can put more than the starting material on the
-    #board. Past 1.0 the endgame weight goes negative and we extrapolate past
-    #the midgame table instead of interpolating between the two.
-    middle_game = min(chess.phase, MAX_PHASE) / MAX_PHASE
-    score = middle * middle_game + end * (1 - middle_game)
+        middle = end = 0
 
-    #Everything above is from white's point of view
-    return score * chess.side_to_move
+        #The table already knows which row a black piece reads, so both loops look
+        #the same. Only the sign differs: my pieces count for me, yours against me.
+        for row, col in chess.white_pieces:
+            piece = board[row][col]
+            middle += mid_table[piece][row][col]
+            end += end_table[piece][row][col]
 
-#Converts board to a list of indices for my network to make use of
-def indexer(chess):
-    board = chess.chess_board
-    res = []
-    for white_piece, black_piece in zip(chess.white_pieces, chess.black_pieces):
-        white_square = (white_piece[0] * 8) + white_piece[1]
-        black_square = (black_square[0] * 8) + black_piece[1]
-        res.append((board[white_piece[0]][white_piece[1]] + 6) * 64 + white_square)
-        res.append((board[black_piece[0]][black_piece[1]] + 6) * 64 + black_square)
+        for row, col in chess.black_pieces:
+            piece = board[row][col]
+            middle -= mid_table[piece][row][col]
+            end -= end_table[piece][row][col]
+                
+        #Clamped because a promotion can put more than the starting material on the
+        #board. Past 1.0 the endgame weight goes negative and we extrapolate past
+        #the midgame table instead of interpolating between the two.
+        middle_game = min(chess.phase, MAX_PHASE) / MAX_PHASE
+        score = middle * middle_game + end * (1 - middle_game)
+
+        #Everything above is from white's point of view
+        return score * chess.side_to_move
+
+class NetworkEvaluator(Evaluator):
+    def __init__(self, weight_path : str='best.pt'):
+        self.model = Net()
+        #Load best weights onto the model
+
+    def self_evaluate(self, chess : Chess):
+        features = torch.tensor(self.piece_indexer(chess))
+        evaluation = self.model(features.long())
+        #Need to convert evaluation from win probability to eval
+        return evaluation
+
+    def piece_indexer(self, chess : Chess):
+        board = chess.chess_board
+        indices = []
+        for piece_idx in chess.white_pieces:
+            piece = board[piece_idx[0]][piece_idx[1]]
+            if piece > 1:
+                indices.append((piece + 5) * 64 + (piece_idx[0] * 8) + piece_idx[1])
+            else:
+                indices.append((piece + 6) * 64 + (piece_idx[0] * 8) + piece_idx[1])
+        for piece_idx in chess.black_pieces:
+            piece = board[piece_idx[0]][piece_idx[1]]
+            if piece > 1:
+                indices.append(abs(piece - 6) * 64 + (8 - piece_idx[0]) * 8 + piece_idx[1])
+            else:
+                indices.append(abs(piece - 5) * 64 + (8 - piece_idx[0]) * 8 + piece_idx[1])
+

@@ -79,7 +79,7 @@ def eval_to_number(mate_flag : str, number : str, mover : int | None = None) -> 
     """
     if not mate_flag:
         #round() keeps centipawns exact: float('0.57') * 100 is 56.99999999999999
-        return round(float(number) * 100) * mover
+        return round(float(number) * 100)
     mate_in = int(number)
     if mate_in == 0:
         sign = mover
