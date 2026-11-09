@@ -7,7 +7,7 @@ from core.board import Chess
 from core.notation import from_fen, to_fen, move_name
 from core.rules import make_move, game_result
 from engine.player import RandomPlayer, SearchPlayer
- 
+from engine.evaluate import NetworkEvaluator
 #Two engines from the same start position play the same game every time: the
 #zobrist seed is fixed and the search is deterministic. A 100 game match would
 #be one game repeated 100 times, so the openings are what create the variety.
@@ -411,13 +411,14 @@ def main():
                         help="play the engine against a random mover as a smoke test")
     parser.add_argument("--ply-limit", type=int, default=350)
     parser.add_argument("--pgn", help="file to append game records to")
+    parser.add_argument("--network", action="store_true", help="play engine with network evaluation")
     args = parser.parse_args()
  
     player_a = SearchPlayer(args.depth, args.nodes, args.time, name="A")
     if args.random:
         player_b = RandomPlayer(seed=0, name="B(random)")
-    else:
-        player_b = SearchPlayer(args.depth, args.nodes, args.time, name="B")
+    elif args.network:
+        player_b = SearchPlayer(args.depth, args.nodes, args.time, evaluator=NetworkEvaluator(),name="B")
  
     adjudicator = Adjudicator(ply_limit=args.ply_limit)
     print(f"{player_a.name} vs {player_b.name}, {args.games} games")

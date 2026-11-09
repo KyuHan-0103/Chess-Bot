@@ -4,19 +4,19 @@ import torch
 from core.constants import *
 from engine.psqt import *
 from core.board import Chess
-from network.base_network import Net
+from network.base_network import Net, K
 
 class Evaluator(ABC):
 
     @abstractmethod
-    def self_evaluate(chess : Chess):
+    def self_evaluate(self, chess : Chess):
         pass
 
 class HandEvaluator(Evaluator):
     def __init__(self):
         return
     
-    def self_evaluate(chess):
+    def self_evaluate(self, chess : Chess):
         """
         Material plus placement, from the side-to-move POV.
 
@@ -61,27 +61,23 @@ class HandEvaluator(Evaluator):
 class NetworkEvaluator(Evaluator):
     def __init__(self, weight_path : str='best.pt'):
         self.model = Net()
-        #Load best weights onto the model
+        #Load weights into the model
+        self.model.load_state_dict(torch.load(weight_path))
+        self.model.eval()
 
     def self_evaluate(self, chess : Chess):
-        features = torch.tensor(self.piece_indexer(chess))
-        evaluation = self.model(features.long())
-        #Need to convert evaluation from win probability to eval
-        return evaluation
+        features = torch.tensor([self.piece_indexer(chess)])
+        with torch.no_grad():
+            logit = self.model(features)
+        return logit.item() * K
 
     def piece_indexer(self, chess : Chess):
-        board = chess.chess_board
+        #We only want to flip if it is black's turn to move
+        board, bool_flip = chess.chess_board, chess.side_to_move == -1
         indices = []
-        for piece_idx in chess.white_pieces:
-            piece = board[piece_idx[0]][piece_idx[1]]
-            if piece > 1:
-                indices.append((piece + 5) * 64 + (piece_idx[0] * 8) + piece_idx[1])
-            else:
-                indices.append((piece + 6) * 64 + (piece_idx[0] * 8) + piece_idx[1])
-        for piece_idx in chess.black_pieces:
-            piece = board[piece_idx[0]][piece_idx[1]]
-            if piece > 1:
-                indices.append(abs(piece - 6) * 64 + (8 - piece_idx[0]) * 8 + piece_idx[1])
-            else:
-                indices.append(abs(piece - 5) * 64 + (8 - piece_idx[0]) * 8 + piece_idx[1])
-
+        for squares in (chess.white_pieces, chess.black_pieces):
+            for r, c in squares:
+                piece = board[r][c]
+                piece_val = abs(piece) + 5 if (piece > 0) != bool_flip else 6 - abs(piece)
+                indices.append(piece_val * 64 + (7 - r if bool_flip else r) * 8 + c)
+        return indices

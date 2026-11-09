@@ -4,7 +4,8 @@ import random
 from core.movegen import pseudo_legal_moves
 from core.rules import make_move, undo_move
 from engine.search import alpha_beta_engine
- 
+from engine.evaluate import HandEvaluator, NetworkEvaluator
+
 class Player(ABC):
     """
     Anything that can choose a move.
@@ -64,13 +65,15 @@ class RandomPlayer(Player):
 
 class SearchPlayer(Player):
     """Alpha-beta search under a depth, node and/or time budget."""
-    def __init__(self, depth, nodes=None, time=None, engine=None, name=None):
+    def __init__(self, depth, nodes=None, time=None, engine=None,
+                 evaluator=None, name=None):
         self.depth = depth
         self.nodes = nodes
         self.time = time
         #Owning an engine by default is what keeps two SearchPlayers from
         #sharing a transposition table. Pass one in only to share deliberately.
-        self.engine = engine if engine is not None else alpha_beta_engine()
+        self.evaluator = HandEvaluator() if evaluator is None else evaluator
+        self.engine = engine if engine is not None else alpha_beta_engine(evaluator)
         self.name = name or f"search(d{depth}, n={nodes}, t={time})"
         self.score = None
         self.node_count = 0

@@ -2,7 +2,7 @@ import math
 import time
 from core.rules import *
 from core.movegen import *
-from engine.evaluate import self_evaluate
+from engine.evaluate import Evaluator, HandEvaluator, NetworkEvaluator
 from engine.ordering import order_moves
 from core.constants import MATE
 
@@ -15,12 +15,13 @@ MAX_PLY = 64
 
 
 class alpha_beta_engine:
-    def __init__(self):
+    def __init__(self, evaluator : Evaluator = None):
         self.t_table = Transposition_Table()
         #Replaced at the top of every search(). An unlimited budget is the
         #right default for anything calling get_best_move directly, which is
         #what the test suite does.
         self.limits = SearchLimits()
+        self.evaluator = HandEvaluator() if evaluator is None else evaluator
 
     #Everything the engine remembers between games. The arena calls this so a
     #new game never inherits scores describing positions from the last one.
@@ -164,7 +165,7 @@ class alpha_beta_engine:
         #generates quiet evasions, which consume nothing, so alternating
         #mutual checks could recurse forever. This is the backstop.
         if ply >= MAX_PLY:
-            return self_evaluate(chess)
+            return self.evaluator.self_evaluate(chess)
 
         if in_check(chess, chess.side_to_move):
             found_move = False
@@ -189,7 +190,7 @@ class alpha_beta_engine:
             return -(MATE - ply)
 
         #Not in check: stand pat, then captures and promotions only
-        stand_still = self_evaluate(chess)
+        stand_still = self.evaluator.self_evaluate(chess)
         if stand_still >= beta:
             return beta                         #Already too good, opponent avoids this
         if stand_still > alpha:
