@@ -15,3 +15,7 @@ env/
 
 # Secrets
 .env
+
+# Data
+2016_fen_eval/
+2016_chess_eval.parquet
