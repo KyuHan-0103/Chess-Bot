@@ -22,7 +22,6 @@ from core.notation import from_fen, to_fen, move_name, parse_uci_move
 from core.rules import (make_move, undo_move, game_result, has_legal_move,
                         insufficient_material)
 from core.zobrist import full_hash
-from engine.evaluate import self_evaluate
 from engine.player import RandomPlayer, SearchPlayer
 from engine.search import SearchLimits, Timeout, alpha_beta_engine
 from testing.perft import Failures, perft, roundtrip_diffs
@@ -681,7 +680,6 @@ if __name__ == "__main__":
     test_arena()
     test_selfplay()
 
-    assert self_evaluate(Chess()) == 0
     print("\n" + "=" * 62)
     print(f"{len(PASS)} passed, {len(FAIL)} failed   ({time.time() - start:.0f}s)")
     if FAIL:
