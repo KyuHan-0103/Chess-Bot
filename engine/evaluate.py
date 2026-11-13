@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
 import torch
+import numpy as np
 
 from core.constants import *
 from engine.psqt import *
 from core.board import Chess
-from network.base_network import Net, K
+from network.base_network import K
 
 class Evaluator(ABC):
 
@@ -59,17 +60,21 @@ class HandEvaluator(Evaluator):
         return score * chess.side_to_move
 
 class NetworkEvaluator(Evaluator):
-    def __init__(self, weight_path : str='best.pt'):
-        self.model = Net()
-        #Load weights into the model
-        self.model.load_state_dict(torch.load(weight_path))
-        self.model.eval()
+    def __init__(self, weight_path : str='net.npz'):
+        net = np.load(weight_path)
+        self.w1 = net['accumulator.weight']       # (769, 256)
+        self.b1 = net['acc_bias']                 # (256,)
+        self.w2 = net['l1.weight']                # (32, 256)  -- (out, in)
+        self.b2 = net['l1.bias']                  # (32,)
+        self.w3 = net['out.weight'].ravel()       # (1, 32) -> (32,)
+        self.b3 = float(net['out.bias'][0])
+        assert not self.w1[768].any(), "row 768 is not zero: wrong file or wrong padding_idx"
 
     def self_evaluate(self, chess : Chess):
-        features = torch.tensor([self.piece_indexer(chess)])
-        with torch.no_grad():
-            logit = self.model(features)
-        return logit.item() * K
+        acc = self.w1[self.piece_indexer(chess)].sum(axis=0)
+        h = np.clip(acc + self.b1, 0, 1)
+        h = np.clip(self.w2 @ h + self.b2, 0, 1)
+        return (self.w3 @ h + self.b3) * K
 
     def piece_indexer(self, chess : Chess):
         #We only want to flip if it is black's turn to move

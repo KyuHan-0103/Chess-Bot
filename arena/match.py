@@ -403,9 +403,9 @@ def main():
     parser.add_argument("--games", type=int, default=10,
                         help="games to play, rounded to a colour-swapped pair (default 10)")
     parser.add_argument("--depth", type=int, default=6, help="max search depth (default 6)")
-    parser.add_argument("--nodes", type=int, default=20000,
+    parser.add_argument("--nodes", type=int, default=30000,
                         help="node budget per move; reproducible, unlike a time budget")
-    parser.add_argument("--time", type=float, default=None,
+    parser.add_argument("--time", type=float, default=10,
                         help="seconds per move instead of a node budget")
     parser.add_argument("--random", action="store_true",
                         help="play the engine against a random mover as a smoke test")

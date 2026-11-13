@@ -5,6 +5,7 @@ from core.constants import PIECE_NAMES, MATE
 from core.movegen import *
 from core.rules import *
 from engine.search import *
+from engine.evaluate import NetworkEvaluator
 
 PIECE_ICON_DIR = Path(__file__).resolve().parent.parent / "assets" / "piece_icons"
 
@@ -12,8 +13,8 @@ PIECE_SCALE = 0.9
 LIGHT_SQUARE = "#ebd6b0"
 DARK_SQUARE = "#a97e5c"
 PICKED_UP_SQUARE = "#d8c65a"
-DEPTH = 8
-TIME_LIMIT = 8.0
+DEPTH = 10
+TIME_LIMIT = 7.0
 #How far the pointer has to move before a press counts as a drag instead of a click
 DRAG_THRESHOLD = 4
 
@@ -399,7 +400,7 @@ def play_game(chess):
 
     #Catches clicks that land outside the board
     window.bind("<Button-1>", on_window_click)
-    engine = alpha_beta_engine()
+    engine = alpha_beta_engine(NetworkEvaluator())
 
     window.bind("<space>", lambda event: cpu_move(engine))
     

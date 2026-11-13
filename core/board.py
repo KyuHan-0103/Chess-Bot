@@ -65,7 +65,7 @@ class Chess:
 
         self.phase = self.count_phase()
         self.force_threefold_draw = force_threefold_draw
-        
+
     #Derived from the board for the same reason the piece sets and the zobrist
     #hash are. Hardcoding 6400 is only right for the starting array and
     #silently wrong for any position built some other way, so anything that

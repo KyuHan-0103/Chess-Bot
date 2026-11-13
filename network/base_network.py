@@ -162,6 +162,7 @@ def main():
             best_weights = {k: v.detach().clone() for k, v in model.state_dict().items()}
             # written every time it improves, so a crash never costs the best model
             torch.save(best_weights, CHECKPOINT)
+            np.savez('net.npz', **{k: v.cpu().numpy() for k, v in model.state_dict().items()})
             stale = 0
         else:
             stale += 1
