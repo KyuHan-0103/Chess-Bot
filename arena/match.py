@@ -414,12 +414,13 @@ def main():
     parser.add_argument("--network", action="store_true", help="play engine with network evaluation")
     args = parser.parse_args()
  
-    player_a = SearchPlayer(args.depth, args.nodes, args.time, name="A")
+    player_a = SearchPlayer(args.depth, args.nodes, args.time, name="A(psqt)")
     if args.random:
         player_b = RandomPlayer(seed=0, name="B(random)")
     elif args.network:
-        player_b = SearchPlayer(args.depth, args.nodes, args.time, evaluator=NetworkEvaluator(),name="B")
- 
+        player_b = SearchPlayer(args.depth, args.nodes, args.time, evaluator=NetworkEvaluator(),name="B(network)")
+    else:
+        player_b = RandomPlayer(seed=0, name="B(random)")
     adjudicator = Adjudicator(ply_limit=args.ply_limit)
     print(f"{player_a.name} vs {player_b.name}, {args.games} games")
  

@@ -17,13 +17,13 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-EPOCHS = 2
+EPOCHS = 50
 K = 174                      # sigmoid scale: 400/ln(10), the base-10 Elo curve
 BATCH = 7_500
-VAL_BATCH = 40_000
-LR = 0.01
-TARGET_ROWS = 8_000_000      # train rows to keep; 769 params need nothing like 159M
-PATIENCE = 2                 # epochs without val improvement before stopping
+VAL_BATCH = 100_000
+LR = 0.001
+TARGET_ROWS = 25_000_000      # train rows to keep; 769 params need nothing like 159M
+PATIENCE = 4                 # epochs without val improvement before stopping
 TRAIN_DIR = "2016_fen_eval/prepped_train"
 VAL_DIR = "2016_fen_eval/prepped_val"
 CHECKPOINT = "best.pt"
@@ -50,11 +50,14 @@ def show_tables(weight, K, bias=None):
 class Net(nn.Module):
     def __init__(self):
         super().__init__()
-        self.accumulator = nn.EmbeddingBag(769, 1, mode='sum', padding_idx=768)
-        self.bias = nn.Parameter(torch.zeros(1))
-
-    def forward(self, indices):
-        return self.accumulator(indices) + self.bias
+        self.accumulator = nn.EmbeddingBag(769, 256, mode='sum', padding_idx=768)
+        self.l1 = nn.Linear(256, 32)
+        self.out = nn.Linear(32, 1)
+        self.acc_bias = nn.Parameter(torch.zeros(256))
+    def forward(self, x):
+        x = torch.clamp(self.accumulator(x) + self.acc_bias, 0, 1)
+        x = torch.clamp(self.l1(x), 0, 1)
+        return self.out(x)
 
 
 def load_split(folder : str, target_rows : int | None = None):
@@ -172,8 +175,7 @@ def main():
             break
 
     print(f"best val loss {best_val_loss:.5f}, weights in {CHECKPOINT}")
-    show_tables(best_weights["accumulator.weight"].numpy(), K,
-                best_weights["bias"].numpy())
+    # show_tables(best_weights["accumulator.weight"].numpy(), K,)
 
 
 if __name__ == "__main__":

@@ -73,7 +73,7 @@ class SearchPlayer(Player):
         #Owning an engine by default is what keeps two SearchPlayers from
         #sharing a transposition table. Pass one in only to share deliberately.
         self.evaluator = HandEvaluator() if evaluator is None else evaluator
-        self.engine = engine if engine is not None else alpha_beta_engine(evaluator)
+        self.engine = engine if engine is not None else alpha_beta_engine(self.evaluator)
         self.name = name or f"search(d{depth}, n={nodes}, t={time})"
         self.score = None
         self.node_count = 0
